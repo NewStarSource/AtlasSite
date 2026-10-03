@@ -3,5 +3,7 @@
   "address": "127.0.0.1:4200",
   "origin": "http://127.0.0.1:4200",
   "account_origin": "http://127.0.0.1:4100",
-  "database": ".local/development.db"
+  "database": ".local/development.db",
+  "oidc_secret_file": "",
+  "csrf_key_file": ""
 }

@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -25,12 +26,17 @@ var pageHTML string
 //go:embed 001_init.sql
 var schema string
 
+//go:embed 002_identity.sql
+var identitySchema string
+
 type Config struct {
-	Mode          string `json:"mode"`
-	Address       string `json:"address"`
-	Origin        string `json:"origin"`
-	AccountOrigin string `json:"account_origin"`
-	Database      string `json:"database"`
+	Mode           string `json:"mode"`
+	Address        string `json:"address"`
+	Origin         string `json:"origin"`
+	AccountOrigin  string `json:"account_origin"`
+	Database       string `json:"database"`
+	OIDCSecretFile string `json:"oidc_secret_file"`
+	CSRFKeyFile    string `json:"csrf_key_file"`
 }
 
 func (config Config) Validate() error {
@@ -51,6 +57,9 @@ func (config Config) Validate() error {
 	}
 	if config.Database == "" || strings.ContainsAny(config.Database, "?\x00") {
 		return errors.New("database 配置无效")
+	}
+	if (config.OIDCSecretFile == "") != (config.CSRFKeyFile == "") {
+		return errors.New("OIDC 与 CSRF 配置必须同时提供")
 	}
 	return nil
 }
@@ -87,9 +96,13 @@ func InitDevelopment() error {
 }
 
 type App struct {
-	db     *sql.DB
-	config Config
-	page   *template.Template
+	db         *sql.DB
+	config     Config
+	page       *template.Template
+	secret     string
+	csrfKey    []byte
+	httpClient *http.Client
+	syncMu     sync.Mutex
 }
 
 func New(config Config) (*App, error) {
@@ -115,10 +128,17 @@ func New(config Config) (*App, error) {
 		return nil, err
 	}
 	var version int
-	if err = transaction.QueryRow("SELECT max(version) FROM schema_migrations").Scan(&version); err != nil || version != 1 {
+	if err = transaction.QueryRow("SELECT max(version) FROM schema_migrations").Scan(&version); err != nil || version < 1 || version > 2 {
 		transaction.Rollback()
 		database.Close()
 		return nil, errors.New("unsupported schema version")
+	}
+	if version == 1 {
+		if _, err = transaction.Exec(identitySchema); err != nil {
+			transaction.Rollback()
+			database.Close()
+			return nil, err
+		}
 	}
 	if err = transaction.Commit(); err != nil {
 		database.Close()
@@ -145,7 +165,18 @@ func New(config Config) (*App, error) {
 		database.Close()
 		return nil, err
 	}
-	return &App{database, config, page}, nil
+	app := &App{db: database, config: config, page: page, httpClient: &http.Client{Timeout: 3 * time.Second, CheckRedirect: func(request *http.Request, via []*http.Request) error { return http.ErrUseLastResponse }}}
+	if config.OIDCSecretFile != "" {
+		secret, secretErr := os.ReadFile(config.OIDCSecretFile)
+		key, keyErr := os.ReadFile(config.CSRFKeyFile)
+		if secretErr != nil || keyErr != nil || len(secret) != 43 || len(key) != 32 {
+			database.Close()
+			return nil, errors.New("身份配置密钥不可用")
+		}
+		app.secret = string(secret)
+		app.csrfKey = key
+	}
+	return app, nil
 }
 func (app *App) Close() error { return app.db.Close() }
 func respond(writer http.ResponseWriter, status int, value any) {
@@ -158,7 +189,16 @@ func (app *App) Handler() http.Handler {
 	for _, route := range []string{"/", "/config"} {
 		router.Get(route, func(writer http.ResponseWriter, request *http.Request) {
 			writer.Header().Set("Content-Type", "text/html; charset=utf-8")
-			_ = app.page.Execute(writer, app.config)
+			identity, _, identityErr := app.currentIdentity(request)
+			if identityErr != nil {
+				respond(writer, 503, map[string]string{"code": "DEPENDENCY_UNAVAILABLE"})
+				return
+			}
+			_ = app.page.Execute(writer, struct {
+				Config
+				Identity *Identity
+				Enabled  bool
+			}{app.config, identity, app.secret != ""})
 		})
 	}
 	router.Get("/health", func(writer http.ResponseWriter, request *http.Request) {
@@ -166,19 +206,25 @@ func (app *App) Handler() http.Handler {
 			respond(writer, 503, map[string]string{"code": "DEPENDENCY_UNAVAILABLE"})
 			return
 		}
-		respond(writer, 200, map[string]any{"ok": true, "service": "star-atlas", "integration": "未联调", "real_users": false})
+		respond(writer, 200, map[string]any{"ok": true, "service": "star-atlas", "stage": "S03", "oidc_configured": app.secret != "", "integration": "本地合成；真实环境未联调", "real_users": false})
 	})
 	router.Get("/api/v1/config", func(writer http.ResponseWriter, request *http.Request) {
-		respond(writer, 200, map[string]any{"service": "star-atlas", "password_owner": "star-account", "account_origin": app.config.AccountOrigin, "oidc": "S03 未实现", "real_users": false})
+		respond(writer, 200, map[string]any{"service": "star-atlas", "password_owner": "star-account", "account_origin": app.config.AccountOrigin, "oidc_configured": app.secret != "", "real_users": false})
 	})
 	router.Get("/api/v1/session", func(writer http.ResponseWriter, request *http.Request) {
-		respond(writer, 200, map[string]any{"authenticated": false, "user": nil})
+		identity, degraded, err := app.currentIdentity(request)
+		if err != nil {
+			respond(writer, 503, map[string]string{"code": "DEPENDENCY_UNAVAILABLE"})
+			return
+		}
+		respond(writer, 200, map[string]any{"authenticated": identity != nil, "user": identity, "identity_service_unavailable": degraded})
 	})
-	for _, route := range []string{"/login", "/auth/callback", "/api/v1/dev/session"} {
+	for _, route := range []string{"/api/v1/dev/session"} {
 		router.HandleFunc(route, func(writer http.ResponseWriter, request *http.Request) {
 			respond(writer, 503, map[string]string{"code": "AUTH_NOT_CONFIGURED", "message": "星图单点登录尚未接入，请稍后再试"})
 		})
 	}
+	app.identityRoutes(router)
 	router.Get("/robots.txt", func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		io.WriteString(writer, "User-agent: *\nDisallow: /\n")
@@ -186,10 +232,11 @@ func (app *App) Handler() http.Handler {
 	router.NotFound(func(writer http.ResponseWriter, request *http.Request) {
 		respond(writer, 404, map[string]string{"code": "NOT_FOUND"})
 	})
+	protected := app.protect(router)
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("Cache-Control", "no-store")
 		writer.Header().Set("X-Robots-Tag", "noindex, nofollow")
-		writer.Header().Set("Referrer-Policy", "no-referrer")
+		writer.Header().Set("Referrer-Policy", "strict-origin")
 		writer.Header().Set("X-Content-Type-Options", "nosniff")
 		writer.Header().Set("X-Frame-Options", "DENY")
 		writer.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
@@ -197,7 +244,8 @@ func (app *App) Handler() http.Handler {
 			respond(writer, 400, map[string]string{"code": "HOST_INVALID"})
 			return
 		}
-		router.ServeHTTP(writer, request)
+		request.Body = http.MaxBytesReader(writer, request.Body, 8192)
+		protected.ServeHTTP(writer, request)
 	})
 }
 func Server(config Config, handler http.Handler) *http.Server {

@@ -12,7 +12,7 @@
 | 环境 | development；测试使用 t.TempDir；production 禁止启动 | 独立测试配置、数据、域名与密钥 |
 | key_file | 账户 init-dev 生成 96 随机字节；前 32 CSRF，中 32 邮件加密，后 32 限流 HMAC | 与备份分离保存，部署/轮换流程 |
 | 邮件 | synthetic，合成收件箱 /dev/mailbox | SMTP host、port（STARTTLS）、from；用户名/密码设置环境变量 |
-| OIDC | 尚未配置 | issuer、client_id、client_secret、JWKS 签名密钥、精确 redirect allowlist |
+| OIDC | S03 本地已实现，可用 init-oidc 初始化 | S04 配置正式 issuer、客户端、HTTPS、密钥与回调白名单 |
 | 管理入口 | 未提供任何生产管理路由 | Passkey 或 TOTP 等可靠额外验证与恢复方案 |
 | 对象存储 | 本阶段不使用 | 私有图片桶、备份桶、最小权限和生命周期 |
 

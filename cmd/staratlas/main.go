@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"time"
 
 	"staratlas/internal/atlas"
@@ -14,6 +15,17 @@ import (
 
 func main() {
 	logger := log.New(os.Stdout, "staratlas ", log.LstdFlags|log.LUTC)
+	if len(os.Args) > 1 && os.Args[1] == "init-oidc" {
+		source := "../StarAccount/.local/oidc-client.secret"
+		if len(os.Args) > 2 {
+			source = os.Args[2]
+		}
+		if err := atlas.InitOIDC(source); err != nil {
+			logger.Fatal("本地 OIDC 配置失败：", err)
+		}
+		logger.Print("本地 OIDC 配置已完成，未输出凭据")
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "init-dev" {
 		if err := atlas.InitDevelopment(); err != nil {
 			logger.Fatal("初始化失败：", err)
@@ -34,6 +46,9 @@ func main() {
 	defer app.Close()
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
+	var worker sync.WaitGroup
+	worker.Add(1)
+	go func() { defer worker.Done(); app.Worker(ctx) }()
 	server := atlas.Server(config, app.Handler())
 	stopped := make(chan struct{})
 	go func() {
@@ -49,4 +64,5 @@ func main() {
 	}
 	cancel()
 	<-stopped
+	worker.Wait()
 }

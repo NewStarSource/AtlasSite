@@ -1,7 +1,7 @@
 # StarAtlas 星图
 
 按 `D:/NewStarProject/SAfiles/TECH-01` 的 Go + chi + SQLite 基线建设。
-当前交付 S01 和 S02 的本地合成验收范围。账户服务位于相邻 `StarAccount` 仓库。
+当前交付至 S03 的本地合成验收范围。账户服务位于相邻 `StarAccount` 仓库。
 
 ## 启动
 
@@ -27,8 +27,31 @@ go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
 ```
 
 健康检查 `/health` 验证数据库连接。首页 `/` 和 `/config` 提供配置清单。
-`/login`、`/auth/callback`、`/api/v1/dev/session` 均拒绝登录；本阶段没有 OIDC 或合成身份绕过入口。
-`/api/v1/session` 始终未登录。星图不读取、保存、转发密码，也不读取账户数据库。
+未配置 OIDC 时 `/login`、`/auth/callback` 拒绝登录。配置后以 Authorization Code + PKCE 登录，`/api/v1/dev/session` 始终关闭，没有合成身份绕过入口。
+`/api/v1/session` 只输出当前星图身份和降级状态。星图不读取、保存、转发密码，也不读取账户数据库。
 
 见 [阶段交付](docs/S01-S02.md)、[身份契约](docs/identity-contract.md)、[配置清单](docs/configuration.md)、[审核记录](docs/review-S01-S02.md)。
-本地验收不代表真实邮件、生产环境、OAuth/OIDC 已完成。
+本地 OIDC 验收不代表真实邮件、HTTPS 或生产环境已完成。
+
+## S03 本地单点登录
+
+先在 StarAccount 目录执行 `go run ./cmd/staraccount init-oidc`，再在本目录执行：
+
+```powershell
+go run ./cmd/staratlas init-oidc
+go run ./cmd/staratlas
+```
+
+`init-oidc` 从相邻账户仓库复制一次客户端密钥到本仓库受限 `.local` 配置；运行时不读取账户仓库或其数据库。可追加参数指定账户客户端密钥文件路径，密钥内容不输出。账户 OIDC 签名私钥永不复制。
+账户服务也需重新启动。打开 `/login`，完成账户确认后进入星图 `/security`。安全页面提供本地退出、重新认证及撤销全部星图会话。
+后台每两秒拉取已认证身份事件，并在会话访问前同步；账户服务中断时既有会话继续普通读取，新登录和敏感操作暂停。
+
+双服务集成测试使用临时目录和随机端口，不访问演示数据、不外发邮件：
+
+```powershell
+go build -o bin/staratlas-s03.exe ./cmd/staratlas
+go -C ../StarAccount build -o bin/staraccount-s03.exe ./cmd/staraccount
+python scripts/test_s03.py --account-bin ../StarAccount/bin/staraccount-s03.exe --atlas-bin bin/staratlas-s03.exe
+```
+
+详见 [S03 交付与验收](docs/S03.md) 和 [S03 审核](docs/review-S03.md)。真实 SMTP、域名和 HTTPS 属于 S04，当前 production 仍拒绝启动。

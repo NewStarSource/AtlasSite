@@ -1,6 +1,6 @@
-# 新星账户与星图身份契约 v0.1
+# 新星账户与星图身份契约 v0.2
 
-本契约为 S01 定义，S03/S04 实现。所有未来身份路径在实现前保持关闭。浏览器本地账户会话不是星图登录凭证。
+本契约在 S01 定义，S03 已实现本地合成登录、会话与状态同步；生产 HTTPS 和真实配置仍在 S04。浏览器本地账户会话不是星图登录凭证，必须经过标准协议验证。
 
 ## 所有权与字段
 
@@ -18,11 +18,11 @@
 
 ## 登录协议
 
-拟采用维护中的 `github.com/zitadel/oidc/v3` 的 OP/RP 能力实现标准协议，S03 才加入依赖并验证兼容性；不自行实现 JWT 签名或 OAuth 协议。S02 密码哈希实际采用 `golang.org/x/crypto/bcrypt`，Web CSRF 使用 gorilla/csrf，SMTP 使用 go-mail，数据库使用 modernc SQLite。
+账户 Provider 使用 `github.com/zitadel/oidc/v3 v3.51.11`；星图 RP 使用 `github.com/coreos/go-oidc/v3 v3.21.0` 和 `golang.org/x/oauth2 v0.37.0`，以两个维护中的组件互操作测试标准协议。签名与验证使用成熟库。S02 密码哈希采用 x/crypto/bcrypt，Web CSRF 使用 gorilla/csrf，SMTP 使用 go-mail，数据库使用 modernc SQLite。
 
 星图只接受 Authorization Code + PKCE S256。回调拟定 `/auth/callback`，客户端 confidential，精确白名单 redirect URI。每次请求必须生成随机 state、nonce 和 verifier，服务端短期保存并绑定发起浏览器；code/state 使用一次。校验 issuer、audience、签名、nonce、iat/exp、auth_time，限制时钟偏差 60 秒。issuer、JWKS 来源不得取自不可信浏览器参数。
 
-OIDC 未配置或未验证时 `/login`、`/auth/callback` 返回 503 AUTH_NOT_CONFIGURED。不得降级为邮件地址、前端 accountId 或开发会话登录。
+OIDC 未配置时 `/login`、`/auth/callback` 返回 503 AUTH_NOT_CONFIGURED。完整配置后从固定 issuer discovery 读取端点，并校验所有端点 origin 一致。不得降级为邮件地址、前端 accountId 或开发会话登录。
 
 ## 状态与撤销
 
@@ -35,9 +35,9 @@ OIDC 未配置或未验证时 `/login`、`/auth/callback` 返回 503 AUTH_NOT_CO
 | recovery_pending | 禁止普通登录/互动 | 账户服务验证成功后 active，新凭据 |
 | deleted | 不可登录，后续数据清理按 TECH-11 | 不恢复旧身份凭据 |
 
-内部事件 envelope 约定 `event_id` UUID、`schema_version:1`、`occurred_at` UTC、`account_id`、`status_version`、`event_type`、可选 `sid`。S03 使用受认证服务端通道/签名校验，禁止浏览器直调状态事件。事件接收、状态变更及撤销须同事务，跨服务不共享数据库写权限。
+内部事件 envelope 使用 `event_id`、`sequence` 单调序号、`occurred_at` UTC 秒、`account_id`、`status_version`、`event_type`、可选 `sid`；响应包含 `schema_version:1`。S03 仅在回环网络使用固定客户端 Basic Auth 拉取 `/internal/identity/events?after=N`，不用浏览器 Cookie 授权。`/internal/identity/session` 同时验证 account_id 与 sid，提供登录/访问时的最新状态。状态和撤销事件由数据库触发器同事务生成，星图应用事件和推进水位同事务；跨服务不共享数据库写权限。正式 HTTPS、独立服务凭据和传输保护需在 S04 验收。
 
-TECH-09 要求账户服务不可用时，已验证且未过期、未被撤销的既有星图会话继续普通操作；新登录和敏感操作暂停。不能将同步失败解释为恢复 active，也不能无条件清除限制。重试保留事件水位，重连补拉遗漏事件。此行为尚未实现，S03 必须测试故障与恢复。
+TECH-09 要求账户服务不可用时，已验证且未过期、未被本地获知撤销的既有星图会话继续普通操作；新登录和敏感操作暂停。网络中断期间不能承诺立即得知远端撤销。S03 每两秒后台同步，并在有会话的请求中同步和复查 sid；返回身份服务不可用标记。重连补拉遗漏事件，不把同步失败解释为恢复 active。事件保存 30 天，星图会话最长 7 天；重连后的会话状态查询还会拒绝已不存在/失效的 sid。
 
 ## 错误
 
