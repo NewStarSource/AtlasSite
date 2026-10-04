@@ -138,6 +138,9 @@ def main():
     flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
     with tempfile.TemporaryDirectory(prefix="star-s03-") as directory:
         account_path, atlas_path, account, atlas = configure(account_bin, atlas_bin, Path(directory))
+        invite_result = subprocess.run([str(account_bin), "generate-invite"], cwd=account_path, check=True, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        invite = (invite_result.stdout or invite_result.stderr).strip().split("邀请码：")[-1].strip()
+        assert invite, "invite generation failed"
         processes = []
         def start(binary, path, origin):
             process = subprocess.Popen([str(binary)], cwd=path, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, creationflags=flags)
@@ -149,20 +152,10 @@ def main():
             start(atlas_bin, atlas_path, atlas)
             browser = Browser()
             password = "synthetic integration password"
-            email = "s03@example.com"
-            expect(browser.request(account + "/api/v1/auth/register", {"email": email, "password": password}, True), 202, "register")
-            verification = None
-            for _ in range(40):
-                inbox = browser.form(account + "/dev/mailbox")
-                verification = next((link for link in inbox.links if "/verify?" in link), None)
-                if verification:
-                    break
-                time.sleep(0.1)
-            assert verification, "verification mail missing"
-            form = browser.form(verification)
-            expect(browser.request(account + "/api/v1/auth/verify-email", form.inputs), 200, "verify")
+            username = "s03user"
+            expect(browser.request(account + "/api/v1/auth/register", {"username": username, "password": password, "invite_code": invite}, True), 201, "register")
 
-            def authorize(start_result=None, account_email=email, account_password=password):
+            def authorize(start_result=None, account_username=username, account_password=password):
                 result = start_result or browser.request(atlas + "/login")
                 if result[0] == 200:
                     continuation = Forms(); continuation.feed(result[2])
@@ -175,8 +168,8 @@ def main():
                 login_url = urllib.parse.urljoin(account, result[1]["Location"])
                 form = browser.form(login_url)
                 values = dict(form.inputs)
-                if "email" in values:
-                    values.update(email=account_email, password=account_password)
+                if "username" in values:
+                    values.update(username=account_username, password=account_password)
                 result = expect(browser.request(account + "/oidc/login", values), 200, "account confirmation")
                 continuation = Forms(); continuation.feed(result[2])
                 continue_url = next(link for link in continuation.links if "/authorize/callback?" in link)
@@ -222,9 +215,9 @@ def main():
             expect(browser.request(account + "/api/v1/security/reauthenticate", {"gorilla.csrf.Token": csrf_value, "password": password}), 200, "reauthenticate")
             expect(browser.request(account + "/api/v1/security/deactivate", {"gorilla.csrf.Token": csrf_value, "confirm": "deactivate"}), 200, "deactivate")
             assert not json.loads(browser.request(atlas + "/api/v1/session")[2])["authenticated"]
-            expect(browser.request(account + "/api/v1/auth/login", {"email":email,"password":password}, True),401,"deactivated login")
+            expect(browser.request(account + "/api/v1/auth/login", {"username":username,"password":password}, True),401,"deactivated login")
             form = browser.form(account + "/recover")
-            expect(browser.request(account + "/api/v1/security/restore", {"gorilla.csrf.Token":form.inputs["gorilla.csrf.Token"],"email":email,"password":password}),200,"restore")
+            expect(browser.request(account + "/api/v1/security/restore", {"gorilla.csrf.Token":form.inputs["gorilla.csrf.Token"],"username":username,"password":password}),200,"restore")
             assert not json.loads(browser.request(atlas + "/api/v1/session")[2])["authenticated"]
             callback, _ = authorize();expect(browser.request(callback),303,"restored login")
             print("PASS deactivation + restoration requires password; old sessions stay revoked")
@@ -270,10 +263,10 @@ def main():
             print("PASS wrong state/browser/nonce/redirect/PKCE, expired and replayed codes rejected")
 
             with closing(sqlite3.connect(account_path / ".local/development.db")) as database:
-                database.execute("UPDATE users SET status='suspended' WHERE email=?",(email,))
+                database.execute("UPDATE users SET status='suspended' WHERE username=?",(username,))
                 database.commit()
             assert not json.loads(browser.request(atlas + "/api/v1/session")[2])["authenticated"]
-            expect(browser.request(account + "/api/v1/auth/login", {"email":email,"password":password}, True),401,"suspended login")
+            expect(browser.request(account + "/api/v1/auth/login", {"username":username,"password":password}, True),401,"suspended login")
             print("PASS suspended account denied and status event synchronized")
             print("S03 integration checks complete; no external email sent")
         finally:

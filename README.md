@@ -54,4 +54,4 @@ go -C ../StarAccount build -o bin/staraccount-s03.exe ./cmd/staraccount
 python scripts/test_s03.py --account-bin ../StarAccount/bin/staraccount-s03.exe --atlas-bin bin/staratlas-s03.exe
 ```
 
-详见 [S03 交付与验收](docs/S03.md) 和 [S03 审核](docs/review-S03.md)。真实 SMTP、域名和 HTTPS 属于 S04，当前 production 仍拒绝启动。
+详见 [S03 交付与验收](docs/S03.md) 和 [S03 审核](docs/review-S03.md)。邀请码注册与真实 SMTP、域名和 HTTPS 属于 S04，当前 production 仍拒绝启动。
