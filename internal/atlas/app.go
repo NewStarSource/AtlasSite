@@ -198,7 +198,34 @@ func respond(writer http.ResponseWriter, status int, value any) {
 func (app *App) Handler() http.Handler {
 	router := chi.NewRouter()
 	router.Get("/", func(writer http.ResponseWriter, request *http.Request) {
-		http.Redirect(writer, request, "/discover", http.StatusFound)
+		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
+		identity, _, _ := app.currentIdentity(request)
+
+		type PageData struct {
+			Title    string
+			Page     string
+			Identity *Identity
+			Content  template.HTML
+		}
+
+		var contentBuf strings.Builder
+		contentBuf.WriteString(`<div class="page-header">
+			<h1 class="page-title">欢迎来到星图</h1>
+			<p class="page-subtitle">探索互联网社群文化的公共空间</p>
+		</div>
+		<div class="empty-state">
+			<p>动态流功能即将上线，敬请期待。</p>
+			<p style="margin-top: var(--space-4);">
+				<a href="/discover" style="color: var(--accent-primary);">现在就去发现社群 →</a>
+			</p>
+		</div>`)
+
+		_ = app.page.Execute(writer, PageData{
+			Title:    "星图 AtlasSite",
+			Page:     "home",
+			Identity: identity,
+			Content:  template.HTML(contentBuf.String()),
+		})
 	})
 	router.Get("/config", func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -297,6 +324,86 @@ func (app *App) Handler() http.Handler {
 			Page:     "discover",
 			Identity: identity,
 			Content:  template.HTML(contentBuf.String()),
+		})
+	})
+	router.Get("/search", func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
+		identity, _, _ := app.currentIdentity(request)
+		query := request.URL.Query().Get("q")
+
+		type PageData struct {
+			Title    string
+			Page     string
+			Identity *Identity
+			Content  template.HTML
+			Query    string
+		}
+
+		var contentBuf strings.Builder
+		contentBuf.WriteString(`<div class="search-header">
+			<div class="search-input-container">
+				<svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<circle cx="11" cy="11" r="8"/>
+					<path d="m21 21-4.35-4.35"/>
+				</svg>
+				<form method="get" action="/search">
+					<input type="search" name="q" class="search-input" placeholder="搜索社群、内容或用户…" value="`)
+		contentBuf.WriteString(template.HTMLEscapeString(query))
+		contentBuf.WriteString(`" autofocus>
+				</form>
+			</div>
+		</div>`)
+
+		if query == "" {
+			contentBuf.WriteString(`<div class="empty-state">
+				<p>输入关键词开始搜索</p>
+			</div>`)
+		} else {
+			// 搜索社群
+			communities, err := app.searchCommunities(query)
+			if err != nil || len(communities) == 0 {
+				contentBuf.WriteString(`<div class="empty-state">
+					<p>没有找到匹配"`)
+				contentBuf.WriteString(template.HTMLEscapeString(query))
+				contentBuf.WriteString(`"的结果</p>
+				</div>`)
+			} else {
+				contentBuf.WriteString(`<div class="result-group">
+					<div class="result-group-header">
+						<h2 class="result-group-title">社群</h2>
+						<span class="result-group-count">`)
+				contentBuf.WriteString(fmt.Sprintf("%d", len(communities)))
+				contentBuf.WriteString(` 条结果</span>
+					</div>
+					<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--space-4);">`)
+
+				for _, community := range communities {
+					contentBuf.WriteString(`<a href="/c/`)
+					contentBuf.WriteString(template.URLQueryEscaper(community.Slug))
+					contentBuf.WriteString(`" class="community-card">
+							<div class="community-name">`)
+					contentBuf.WriteString(template.HTMLEscapeString(community.Name))
+					if community.Verified {
+						contentBuf.WriteString(` <span class="status-badge verified">✓</span>`)
+					}
+					contentBuf.WriteString(`</div>
+							<div class="community-desc">`)
+					contentBuf.WriteString(template.HTMLEscapeString(community.Description))
+					contentBuf.WriteString(`</div>
+						</a>`)
+				}
+
+				contentBuf.WriteString(`</div>
+				</div>`)
+			}
+		}
+
+		_ = app.page.Execute(writer, PageData{
+			Title:    "搜索",
+			Page:     "search",
+			Identity: identity,
+			Content:  template.HTML(contentBuf.String()),
+			Query:    query,
 		})
 	})
 	router.Get("/health", func(writer http.ResponseWriter, request *http.Request) {

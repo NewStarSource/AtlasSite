@@ -349,6 +349,37 @@ func (app *App) getCommunityBySlug(slug string) (*Community, error) {
 	return &c, nil
 }
 
+func (app *App) searchCommunities(query string) ([]Community, error) {
+	rows, err := app.db.Query(`
+		SELECT id, slug, name, description, COALESCE(subcategory_id,''), status,
+		       contact_method, source_url, source_license, verified, created_at, updated_at
+		FROM communities
+		WHERE status='active' AND (name LIKE ? OR description LIKE ?)
+		ORDER BY verified DESC, name ASC
+		LIMIT 50
+	`, "%"+query+"%", "%"+query+"%")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var communities []Community
+	for rows.Next() {
+		var c Community
+		var verified int
+		var createdAt, updatedAt int64
+		if err := rows.Scan(&c.ID, &c.Slug, &c.Name, &c.Description, &c.SubcategoryID, &c.Status,
+			&c.ContactMethod, &c.SourceURL, &c.SourceLicense, &verified, &createdAt, &updatedAt); err != nil {
+			return nil, err
+		}
+		c.Verified = verified == 1
+		c.CreatedAt = time.Unix(createdAt, 0)
+		c.UpdatedAt = time.Unix(updatedAt, 0)
+		communities = append(communities, c)
+	}
+	return communities, rows.Err()
+}
+
 func (app *App) listTopics(communityID string) ([]Topic, error) {
 	rows, err := app.db.Query(`
 		SELECT id, community_id, slug, name, description, display_order, status
