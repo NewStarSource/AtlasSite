@@ -35,18 +35,18 @@ type Subcategory struct {
 }
 
 type Community struct {
-	ID             string
-	Slug           string
-	Name           string
-	Description    string
-	SubcategoryID  string
-	Status         string
-	ContactMethod  string
-	SourceURL      string
-	SourceLicense  string
-	Verified       bool
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID            string
+	Slug          string
+	Name          string
+	Description   string
+	SubcategoryID string
+	Status        string
+	ContactMethod string
+	SourceURL     string
+	SourceLicense string
+	Verified      bool
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 type Topic struct {
@@ -136,12 +136,12 @@ func (app *App) communityRoutes(router *chi.Mux) {
 		identity, _, _ := app.currentIdentity(r)
 
 		type PageData struct {
-			Title      string
-			Page       string
-			Identity   *Identity
-			Content    template.HTML
-			Community  *Community
-			Topics     []Topic
+			Title       string
+			Page        string
+			Identity    *Identity
+			Content     template.HTML
+			Community   *Community
+			Topics      []Topic
 			Collections []Collection
 		}
 
