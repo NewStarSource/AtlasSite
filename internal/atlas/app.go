@@ -29,6 +29,9 @@ var schema string
 //go:embed 002_identity.sql
 var identitySchema string
 
+//go:embed 003_communities.sql
+var communitiesSchema string
+
 type Config struct {
 	Mode           string `json:"mode"`
 	Address        string `json:"address"`
@@ -128,13 +131,20 @@ func New(config Config) (*App, error) {
 		return nil, err
 	}
 	var version int
-	if err = transaction.QueryRow("SELECT max(version) FROM schema_migrations").Scan(&version); err != nil || version < 1 || version > 2 {
+	if err = transaction.QueryRow("SELECT max(version) FROM schema_migrations").Scan(&version); err != nil || version < 1 || version > 3 {
 		transaction.Rollback()
 		database.Close()
 		return nil, errors.New("unsupported schema version")
 	}
 	if version == 1 {
 		if _, err = transaction.Exec(identitySchema); err != nil {
+			transaction.Rollback()
+			database.Close()
+			return nil, err
+		}
+	}
+	if version < 3 {
+		if _, err = transaction.Exec(communitiesSchema); err != nil {
 			transaction.Rollback()
 			database.Close()
 			return nil, err
@@ -201,6 +211,51 @@ func (app *App) Handler() http.Handler {
 			}{app.config, identity, app.secret != ""})
 		})
 	}
+	router.Get("/discover", func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
+		identity, _, _ := app.currentIdentity(request)
+		domains, err := app.listDomains()
+		if err != nil {
+			respond(writer, 503, map[string]string{"code": "DEPENDENCY_UNAVAILABLE"})
+			return
+		}
+
+		type PageData struct {
+			Title    string
+			Page     string
+			Identity *Identity
+			Content  template.HTML
+		}
+
+		var contentBuf strings.Builder
+		contentBuf.WriteString(`<div class="page-header">
+			<h1 class="page-title">发现社群</h1>
+			<p class="page-subtitle">探索由领域专家和爱好者维护的社群空间</p>
+		</div>
+		<div class="category-grid">`)
+
+		for _, domain := range domains {
+			contentBuf.WriteString(`<div class="category-section">
+				<div class="category-header">
+					<h2 class="category-title">`)
+			contentBuf.WriteString(template.HTMLEscapeString(domain.Name))
+			contentBuf.WriteString(`</h2>
+					<p class="category-desc">`)
+			contentBuf.WriteString(template.HTMLEscapeString(domain.Description))
+			contentBuf.WriteString(`</p>
+				</div>
+			</div>`)
+		}
+
+		contentBuf.WriteString(`</div>`)
+
+		_ = app.page.Execute(writer, PageData{
+			Title:    "发现社群",
+			Page:     "discover",
+			Identity: identity,
+			Content:  template.HTML(contentBuf.String()),
+		})
+	})
 	router.Get("/health", func(writer http.ResponseWriter, request *http.Request) {
 		if err := app.db.PingContext(request.Context()); err != nil {
 			respond(writer, 503, map[string]string{"code": "DEPENDENCY_UNAVAILABLE"})
@@ -225,6 +280,7 @@ func (app *App) Handler() http.Handler {
 		})
 	}
 	app.identityRoutes(router)
+	app.communityRoutes(router)
 	router.Get("/robots.txt", func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		io.WriteString(writer, "User-agent: *\nDisallow: /\n")

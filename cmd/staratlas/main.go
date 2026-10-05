@@ -33,6 +33,13 @@ func main() {
 		logger.Print("本机配置已创建于 .local/development.json")
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "seed-communities" {
+		if err := seedCommunities(".local/development.db"); err != nil {
+			logger.Fatal("导入社群数据失败：", err)
+		}
+		logger.Print("✓ 社群数据导入完成")
+		return
+	}
 	filename := flag.String("config", ".local/development.json", "配置路径")
 	flag.Parse()
 	config, err := atlas.LoadConfig(*filename)

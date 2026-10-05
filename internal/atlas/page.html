@@ -1,4 +1,156 @@
-<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>星图 · 本地身份联调</title><style>*{box-sizing:border-box}body{font-family:system-ui,"Microsoft YaHei",sans-serif;background:#f1f5f9;color:#193049;margin:0}header,main,footer{max-width:900px;margin:auto;padding:28px}main{background:white;border-radius:16px;margin:24px auto}h1{font-size:2.2rem}p{line-height:1.8}a{color:#155f90}.notice{background:#edf4fc;padding:18px;border-left:4px solid #377ba8}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:14px;border-bottom:1px solid #d9e2ec;overflow-wrap:anywhere}a:focus-visible{outline:3px solid #eeaa33;outline-offset:3px}@media(max-width:600px){main{margin:8px;padding:18px}header,footer{padding:20px}}</style></head><body><header><strong>星图 StarAtlas</strong></header><main><h1>从相同的兴趣出发</h1><p>使用新星账户进入星图，你的密码由账户服务保管。</p><p class="notice">S03 本地合成测试。真实邮件、HTTPS 部署和社群内容尚未开放。</p>
-{{if .Identity}}<p>已登录为 {{.Identity.Alias}}。<a href="/security">查看登录状态与安全设置</a></p>{{else}}{{if .Enabled}}<p><a href="/login">使用新星账户登录星图</a></p>{{else}}<p>尚未配置 OIDC，请按 README 初始化本地身份连接。</p>{{end}}{{end}}
-<p><a href="{{.AccountOrigin}}/register">注册新星测试账户</a> · <a href="{{.AccountOrigin}}/security">账户会话管理</a> · <a href="/health">健康检查</a></p><h2>一页配置清单</h2><table><tr><th>配置</th><th>用途与状态</th></tr><tr><td>mode / address / origin</td><td>区分开发和测试；当前只绑定本机回环地址。</td></tr><tr><td>database</td><td>星图独立 SQLite 数据库，保存身份映射和应用会话；不保存密码。</td></tr><tr><td>account_origin</td><td>新星账户固定签发方地址，回调校验必须匹配。</td></tr><tr><td>OIDC 客户端与 CSRF 密钥</td><td>受限本地配置文件，界面不显示凭据。</td></tr><tr><td>域名与 HTTPS</td><td>S04 待联调；当前回环 HTTP 不代表生产部署。</td></tr><tr><td>邮件</td><td>账户合成测试收件箱，真实 SMTP 暂缓。</td></tr></table></main><footer>本站不使用第三方追踪。公开页面设置 noindex；这些设置不代替权限检查。</footer></body></html>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}} - 星图 AtlasSite</title>
+  <style>
+    :root {
+      --font-base: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      --text-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.8125rem);
+      --text-sm: clamp(0.875rem, 0.825rem + 0.25vw, 0.9375rem);
+      --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.0625rem);
+      --text-lg: clamp(1.125rem, 1.05rem + 0.375vw, 1.25rem);
+      --text-xl: clamp(1.25rem, 1.15rem + 0.5vw, 1.5rem);
+      --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem;
+      --space-6: 1.5rem; --space-8: 2rem; --space-12: 3rem;
+      --content-width: 720px; --sidebar-width: 240px;
+      --radius-sm: 4px; --radius-md: 8px; --radius-full: 999px;
+
+      --surface-0: #05070C; --surface-1: #0A0D12; --surface-2: #0F131C;
+      --surface-3: #161D2B; --surface-4: #1E2636;
+      --text-primary: #E8EDF5; --text-secondary: #9AA5B8; --text-tertiary: #6B7990;
+      --text-inverse: #0A0D12;
+      --border-subtle: #1E2636; --border-default: #2A3447; --border-strong: #3D4A5F;
+      --accent-primary: #38BDF8; --accent-hover: #57CAF9;
+
+      --shadow-xs: 0 1px 2px 0 rgba(0,0,0,0.3);
+      --shadow-sm: 0 2px 4px 0 rgba(0,0,0,0.4), 0 1px 2px 0 rgba(0,0,0,0.2);
+      --shadow-md: 0 4px 8px 0 rgba(0,0,0,0.5), 0 2px 4px 0 rgba(0,0,0,0.3);
+      --shadow-lg: 0 8px 16px 0 rgba(0,0,0,0.6), 0 4px 8px 0 rgba(0,0,0,0.4);
+      --focus-ring: 0 0 0 3px rgba(56,189,248,0.3);
+
+      --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+      --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+    body { font-family: var(--font-base); font-size: var(--text-base); line-height: 1.75; color: var(--text-primary); background: var(--surface-0); }
+    h1, h2, h3 { font-weight: 600; line-height: 1.3; letter-spacing: -0.02em; }
+    h1 { font-size: var(--text-xl); } h2 { font-size: var(--text-lg); }
+    a { color: var(--accent-primary); text-decoration: none; transition: color var(--transition-fast); }
+    a:hover { color: var(--accent-hover); }
+
+    .layout { display: grid; grid-template-columns: var(--sidebar-width) 1fr; min-height: 100vh; }
+    @media (max-width: 768px) { .layout { grid-template-columns: 1fr; } }
+
+    .sidebar { position: sticky; top: 0; height: 100vh; padding: var(--space-6) var(--space-4); border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: var(--space-8); background: var(--surface-1); }
+    @media (max-width: 768px) { .sidebar { position: fixed; bottom: 0; left: 0; right: 0; top: auto; height: auto; flex-direction: row; justify-content: space-around; padding: var(--space-3); border-right: none; border-top: 1px solid var(--border-subtle); z-index: 100; } }
+
+    .logo { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-lg); font-weight: 700; letter-spacing: -0.03em; color: var(--text-primary); }
+    .logo svg { width: 32px; height: 32px; }
+    @media (max-width: 768px) { .logo span { display: none; } }
+
+    .nav { display: flex; flex-direction: column; gap: var(--space-1); }
+    @media (max-width: 768px) { .nav { flex-direction: row; gap: 0; } }
+
+    .nav-item { padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); color: var(--text-secondary); font-size: var(--text-sm); transition: all var(--transition-fast); display: flex; align-items: center; gap: var(--space-2); }
+    .nav-item:hover { background: var(--surface-2); color: var(--text-primary); transform: translateX(2px); }
+    .nav-item.active { background: var(--surface-3); color: var(--text-primary); font-weight: 500; }
+    @media (max-width: 768px) { .nav-item { flex-direction: column; gap: var(--space-1); padding: var(--space-2); font-size: var(--text-xs); } }
+
+    .main { max-width: var(--content-width); margin: 0 auto; padding: var(--space-6) var(--space-4) calc(var(--space-12) + 60px); }
+    @media (min-width: 769px) { .main { padding-bottom: var(--space-12); } }
+
+    .breadcrumb { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-6); font-size: var(--text-sm); color: var(--text-tertiary); }
+    .breadcrumb a { color: var(--text-secondary); }
+    .breadcrumb a:hover { color: var(--text-primary); }
+    .breadcrumb-sep { opacity: 0.5; }
+
+    .page-header { margin-bottom: var(--space-8); }
+    .page-title { margin-bottom: var(--space-3); }
+    .page-subtitle { color: var(--text-secondary); margin-bottom: var(--space-4); line-height: 1.6; }
+
+    .category-grid { display: grid; grid-template-columns: 1fr; gap: var(--space-8); }
+    .category-section { padding-bottom: var(--space-6); border-bottom: 1px solid var(--border-subtle); }
+    .category-section:last-child { border-bottom: none; }
+
+    .category-header { margin-bottom: var(--space-4); }
+    .category-title { font-size: var(--text-lg); margin-bottom: var(--space-2); }
+    .category-desc { color: var(--text-secondary); font-size: var(--text-sm); }
+
+    .direction-list { display: flex; flex-direction: column; gap: var(--space-4); }
+    .direction-item { padding: var(--space-4); background: var(--surface-2); border-radius: var(--radius-md); border: 1px solid var(--border-subtle); transition: all var(--transition-base); }
+    .direction-item:hover { background: var(--surface-3); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .direction-name { font-weight: 600; margin-bottom: var(--space-2); }
+    .direction-desc { color: var(--text-secondary); font-size: var(--text-sm); margin-bottom: var(--space-3); }
+
+    .subcategory-list { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+    .subcategory-tag { padding: var(--space-1) var(--space-3); background: var(--surface-3); border: 1px solid var(--border-default); border-radius: var(--radius-full); font-size: var(--text-sm); color: var(--text-secondary); transition: all var(--transition-fast); }
+    .subcategory-tag:hover { background: var(--surface-4); color: var(--text-primary); border-color: var(--border-strong); }
+
+    .community-list { display: grid; grid-template-columns: 1fr; gap: var(--space-3); margin-top: var(--space-3); }
+    .community-card { padding: var(--space-4); background: var(--surface-2); border-radius: var(--radius-md); border: 1px solid var(--border-subtle); transition: all var(--transition-base); }
+    .community-card:hover { background: var(--surface-3); transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--border-default); }
+    .community-name { font-weight: 600; margin-bottom: var(--space-2); }
+    .community-desc { color: var(--text-secondary); font-size: var(--text-sm); margin-bottom: var(--space-3); }
+    .community-meta { display: flex; gap: var(--space-4); font-size: var(--text-xs); color: var(--text-tertiary); }
+
+    .community-header { padding-bottom: var(--space-6); border-bottom: 1px solid var(--border-subtle); margin-bottom: var(--space-8); }
+    .community-title { font-size: var(--text-xl); margin-bottom: var(--space-3); }
+    .community-subtitle { color: var(--text-secondary); margin-bottom: var(--space-4); line-height: 1.6; }
+    .community-actions { display: flex; gap: var(--space-3); margin-top: var(--space-4); }
+
+    .btn { padding: var(--space-2) var(--space-4); background: var(--accent-primary); color: var(--text-inverse); border: none; border-radius: var(--radius-full); font-family: inherit; font-size: var(--text-sm); font-weight: 500; cursor: pointer; transition: all var(--transition-fast); }
+    .btn:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+    .btn-secondary { background: var(--surface-3); color: var(--text-primary); border: 1px solid var(--border-default); }
+    .btn-secondary:hover { background: var(--surface-4); }
+
+    .tabs { display: flex; gap: var(--space-4); margin-bottom: var(--space-6); border-bottom: 1px solid var(--border-subtle); }
+    .tab-btn { padding: var(--space-2) 0; background: none; border: none; color: var(--text-secondary); font-size: var(--text-base); font-family: inherit; cursor: pointer; border-bottom: 2px solid transparent; transition: all var(--transition-fast); }
+    .tab-btn:hover { color: var(--text-primary); }
+    .tab-btn.active { color: var(--text-primary); font-weight: 500; border-bottom-color: var(--accent-primary); }
+
+    .content-section { margin-bottom: var(--space-8); }
+    .section-title { margin-bottom: var(--space-4); }
+    .collection-card { padding: var(--space-4); background: var(--surface-2); border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-bottom: var(--space-4); }
+    .collection-title { font-weight: 600; margin-bottom: var(--space-2); }
+    .collection-content { color: var(--text-secondary); line-height: 1.8; white-space: pre-wrap; }
+
+    .topic-list { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+    .topic-tag { padding: var(--space-2) var(--space-3); background: var(--surface-3); border: 1px solid var(--border-default); border-radius: var(--radius-full); font-size: var(--text-sm); transition: all var(--transition-fast); }
+    .topic-tag:hover { background: var(--surface-4); border-color: var(--border-strong); }
+
+    .status-badge { display: inline-block; padding: var(--space-1) var(--space-2); background: var(--surface-3); border-radius: var(--radius-sm); font-size: var(--text-xs); color: var(--text-tertiary); }
+    .status-badge.verified { background: rgba(56,189,248,0.15); color: var(--accent-primary); }
+
+    .empty-state { padding: var(--space-8); text-align: center; color: var(--text-tertiary); }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <a href="/" class="logo">
+        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2"/>
+          <path d="M16 8v16M8 16h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span>星图</span>
+      </a>
+      <nav class="nav">
+        <a href="/" class="nav-item {{if eq .Page "home"}}active{{end}}">首页</a>
+        <a href="/discover" class="nav-item {{if eq .Page "discover"}}active{{end}}">发现</a>
+        <a href="/notifications" class="nav-item">通知</a>
+        <a href="/profile" class="nav-item">我</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      {{if .Content}}
+        {{.Content}}
+      {{end}}
+    </main>
+  </div>
+</body>
+</html>
