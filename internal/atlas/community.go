@@ -259,6 +259,77 @@ func (app *App) listDomains() ([]Domain, error) {
 	return domains, rows.Err()
 }
 
+func (app *App) listDirections(domainID string) ([]Direction, error) {
+	rows, err := app.db.Query(`
+		SELECT id, domain_id, name, description, display_order
+		FROM directions WHERE domain_id=? ORDER BY display_order
+	`, domainID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var directions []Direction
+	for rows.Next() {
+		var d Direction
+		if err := rows.Scan(&d.ID, &d.DomainID, &d.Name, &d.Description, &d.DisplayOrder); err != nil {
+			return nil, err
+		}
+		directions = append(directions, d)
+	}
+	return directions, rows.Err()
+}
+
+func (app *App) listSubcategories(directionID string) ([]Subcategory, error) {
+	rows, err := app.db.Query(`
+		SELECT id, direction_id, name, description, display_order
+		FROM subcategories WHERE direction_id=? ORDER BY display_order
+	`, directionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var subcategories []Subcategory
+	for rows.Next() {
+		var s Subcategory
+		if err := rows.Scan(&s.ID, &s.DirectionID, &s.Name, &s.Description, &s.DisplayOrder); err != nil {
+			return nil, err
+		}
+		subcategories = append(subcategories, s)
+	}
+	return subcategories, rows.Err()
+}
+
+func (app *App) listCommunitiesBySubcategory(subcategoryID string) ([]Community, error) {
+	rows, err := app.db.Query(`
+		SELECT id, slug, name, description, subcategory_id, status, contact_method,
+		       source_url, source_license, verified, created_at, updated_at
+		FROM communities WHERE subcategory_id=? AND status='active' ORDER BY created_at DESC
+	`, subcategoryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var communities []Community
+	for rows.Next() {
+		var c Community
+		var verified int
+		var createdAt, updatedAt int64
+		if err := rows.Scan(&c.ID, &c.Slug, &c.Name, &c.Description, &c.SubcategoryID,
+			&c.Status, &c.ContactMethod, &c.SourceURL, &c.SourceLicense,
+			&verified, &createdAt, &updatedAt); err != nil {
+			return nil, err
+		}
+		c.Verified = verified == 1
+		c.CreatedAt = time.Unix(createdAt, 0)
+		c.UpdatedAt = time.Unix(updatedAt, 0)
+		communities = append(communities, c)
+	}
+	return communities, rows.Err()
+}
+
 func (app *App) getCommunityBySlug(slug string) (*Community, error) {
 	var c Community
 	var verified int

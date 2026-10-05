@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"html/template"
 	"io"
 	"net"
@@ -196,21 +197,22 @@ func respond(writer http.ResponseWriter, status int, value any) {
 }
 func (app *App) Handler() http.Handler {
 	router := chi.NewRouter()
-	for _, route := range []string{"/", "/config"} {
-		router.Get(route, func(writer http.ResponseWriter, request *http.Request) {
-			writer.Header().Set("Content-Type", "text/html; charset=utf-8")
-			identity, _, identityErr := app.currentIdentity(request)
-			if identityErr != nil {
-				respond(writer, 503, map[string]string{"code": "DEPENDENCY_UNAVAILABLE"})
-				return
-			}
-			_ = app.page.Execute(writer, struct {
-				Config
-				Identity *Identity
-				Enabled  bool
-			}{app.config, identity, app.secret != ""})
-		})
-	}
+	router.Get("/", func(writer http.ResponseWriter, request *http.Request) {
+		http.Redirect(writer, request, "/discover", http.StatusFound)
+	})
+	router.Get("/config", func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
+		identity, _, identityErr := app.currentIdentity(request)
+		if identityErr != nil {
+			respond(writer, 503, map[string]string{"code": "DEPENDENCY_UNAVAILABLE"})
+			return
+		}
+		_ = app.page.Execute(writer, struct {
+			Config
+			Identity *Identity
+			Enabled  bool
+		}{app.config, identity, app.secret != ""})
+	})
 	router.Get("/discover", func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
 		identity, _, _ := app.currentIdentity(request)
@@ -235,7 +237,9 @@ func (app *App) Handler() http.Handler {
 		<div class="category-grid">`)
 
 		for _, domain := range domains {
-			contentBuf.WriteString(`<div class="category-section">
+			directions, _ := app.listDirections(domain.ID)
+
+			contentBuf.WriteString(`<section class="category-section">
 				<div class="category-header">
 					<h2 class="category-title">`)
 			contentBuf.WriteString(template.HTMLEscapeString(domain.Name))
@@ -243,8 +247,47 @@ func (app *App) Handler() http.Handler {
 					<p class="category-desc">`)
 			contentBuf.WriteString(template.HTMLEscapeString(domain.Description))
 			contentBuf.WriteString(`</p>
-				</div>
-			</div>`)
+				</div>`)
+
+			if len(directions) > 0 {
+				contentBuf.WriteString(`<div class="direction-list">`)
+				for _, direction := range directions {
+					subcategories, _ := app.listSubcategories(direction.ID)
+
+					contentBuf.WriteString(`<div class="direction-item">
+						<div class="direction-name">`)
+					contentBuf.WriteString(template.HTMLEscapeString(direction.Name))
+					contentBuf.WriteString(`</div>
+						<div class="direction-desc">`)
+					contentBuf.WriteString(template.HTMLEscapeString(direction.Description))
+					contentBuf.WriteString(`</div>`)
+
+					if len(subcategories) > 0 {
+						contentBuf.WriteString(`<div class="subcategory-list">`)
+						for _, subcategory := range subcategories {
+							communities, _ := app.listCommunitiesBySubcategory(subcategory.ID)
+							communityCount := len(communities)
+
+							contentBuf.WriteString(`<span class="subcategory-tag" title="`)
+							contentBuf.WriteString(template.HTMLEscapeString(subcategory.Description))
+							contentBuf.WriteString(`">`)
+							contentBuf.WriteString(template.HTMLEscapeString(subcategory.Name))
+							if communityCount > 0 {
+								contentBuf.WriteString(` (`)
+								contentBuf.WriteString(fmt.Sprintf("%d", communityCount))
+								contentBuf.WriteString(`)`)
+							}
+							contentBuf.WriteString(`</span>`)
+						}
+						contentBuf.WriteString(`</div>`)
+					}
+
+					contentBuf.WriteString(`</div>`)
+				}
+				contentBuf.WriteString(`</div>`)
+			}
+
+			contentBuf.WriteString(`</section>`)
 		}
 
 		contentBuf.WriteString(`</div>`)

@@ -15,7 +15,7 @@ func TestBaselineAndClosedAuthentication(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	for path, status := range map[string]int{"/": 200, "/config": 200, "/health": 200, "/api/v1/config": 200, "/api/v1/session": 200, "/login": 503, "/auth/callback?code=forged": 503, "/api/v1/dev/session": 503, "/api/v1/me": 404, "/robots.txt": 200} {
+	for path, status := range map[string]int{"/": 302, "/config": 200, "/health": 200, "/api/v1/config": 200, "/api/v1/session": 200, "/login": 503, "/auth/callback?code=forged": 503, "/api/v1/dev/session": 503, "/api/v1/me": 404, "/robots.txt": 200} {
 		response := httptest.NewRecorder()
 		request := httptest.NewRequest("GET", config.Origin+path, nil)
 		app.Handler().ServeHTTP(response, request)
