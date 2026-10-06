@@ -133,18 +133,17 @@ func (app *App) homePage(w http.ResponseWriter, r *http.Request) {
 	}
 	i, _, _ := app.currentIdentity(r)
 	viewer := ""
+	body := `<h1 class="sr-only">最新发布</h1><header class="feed-header"><nav class="feed-tabs" aria-label="内容导航"><a class="tab-btn active" href="/" aria-current="page">最新发布</a><a class="tab-btn" href="/discover">发现社群</a><a class="tab-btn" href="/my/bookmarks">收藏</a></nav></header>`
 	if i != nil {
 		viewer = i.ID
+		body += strings.Replace(formStart(r, "/new"), `<form `, `<form class="composer" `, 1) + `<label for="composer-input" class="sr-only">发布内容</label><textarea id="composer-input" class="composer-textarea" name="content" maxlength="50000" placeholder="分享你的想法、创作或观察…" aria-label="发布内容"></textarea><div class="composer-toolbar"><div class="composer-meta"><a class="meta-tag" href="/new#post-community">＋ 关联社群</a><a class="meta-tag" href="/new#post-image">＋ 上传图片</a><a class="meta-tag" href="/my/drafts">草稿</a></div><button class="btn" type="submit">继续编辑</button></div></form>`
+	} else {
+		body += `<div class="composer"><p>分享你的想法、创作或观察…</p><div class="composer-toolbar"><a class="btn" href="/login">登录后发布</a></div></div>`
 	}
-	actions := `<a class="btn" href="/discover">发现社群 ↗</a>`
-	prompt := `<div class="composer-prompt"><span class="avatar avatar-small">✦</span><a href="/login">登录，和感兴趣的人一起讨论</a><a class="btn btn-primary" href="/login">去登录</a></div>`
-	if i != nil {
-		prompt = `<div class="composer-prompt"><span class="avatar avatar-small">我</span><a href="/new">有什么新的想法想分享？</a><a class="btn btn-primary" href="/new">写动态</a></div>`
-	}
-	body := pageHeading("COMMUNITY / DISCUSSION", "首页动态", "从一条想法开始，在感兴趣的社群继续讨论。", actions)
-	body += `<div class="page-columns"><section>` + prompt + `<div class="section-heading"><h2>最近发布</h2><span class="muted">按发布时间</span></div><div class="feed-list">` + app.postCards(posts, viewer) + `</div></section><aside class="aside-panel"><div class="panel"><p class="eyebrow">EXPLORE</p><h3>找到你的社群</h3><p>从领域、方向和主题出发，认识正在讨论同一件事的人。</p><div class="link-list"><a href="/discover">浏览社群目录</a><a href="/search">搜索社群与讨论</a><a href="/my/subscriptions">我的订阅</a></div></div><div class="panel panel-tint"><p class="eyebrow">BEFORE YOU POST</p><h3>分享，也尊重边界</h3><p>使用自己的文字与图片，选择合适的许可。内容有问题时，可从详情页提交反馈。</p><a href="/help">阅读使用说明 →</a></div></aside></div>`
-	app.renderPage(w, r, "首页动态", "home", body)
+	body += `<div class="feed" role="feed">` + app.postCards(posts, viewer) + `</div>`
+	app.renderPage(w, r, "最新发布", "home", body)
 }
+
 func (app *App) postCards(posts []Post, viewer string) string {
 	blockedAuthors := map[string]bool{}
 	if viewer != "" {
@@ -164,11 +163,11 @@ func (app *App) postCards(posts []Post, viewer string) string {
 		if blockedAuthors[p.AuthorID] || p.Status != "published" {
 			continue
 		}
-		b.WriteString(`<article class="feed-item"><div class="feed-meta">` + publicAuthor(p) + ` · ` + formatTime(p.CreatedAt) + `</div><h2><a href="/p/` + pathID(p.ID) + `">` + esc(p.Title) + `</a></h2><p>` + esc(markdownExcerpt(p.Content, 150)) + `</p>`)
+		b.WriteString(`<article class="post"><header class="post-header">` + publicAuthor(p))
 		if p.CommunityID != "" {
-			b.WriteString(`<a href="/c/` + pathID(p.CommunitySlug) + `">` + esc(p.CommunityName) + `</a>`)
+			b.WriteString(`<span class="post-meta">发布于</span><a class="post-community" href="/c/` + pathID(p.CommunitySlug) + `">` + esc(p.CommunityName) + `</a>`)
 		}
-		b.WriteString(`<div class="feed-stats"><span>讨论 ` + strconv.Itoa(p.ReplyCount) + ` · 收藏 ` + strconv.Itoa(p.BookmarkCount) + `</span><a href="/p/` + pathID(p.ID) + `">查看讨论 →</a></div></article>`)
+		b.WriteString(`<span class="post-meta">· ` + formatTime(p.CreatedAt) + `</span></header><h2 class="post-title"><a href="/p/` + pathID(p.ID) + `">` + esc(p.Title) + `</a></h2><p class="post-content">` + esc(markdownExcerpt(p.Content, 120)) + `</p><div class="post-actions"><a class="action-btn" aria-label="查看回复" href="/p/` + pathID(p.ID) + `#reply-composer">` + uiIcon("reply") + `<span>` + strconv.Itoa(p.ReplyCount) + `</span></a><a class="action-btn" aria-label="查看收藏与内容" href="/p/` + pathID(p.ID) + `">` + uiIcon("bookmark") + `<span>` + strconv.Itoa(p.BookmarkCount) + `</span></a><a class="action-btn" aria-label="打开内容" href="/p/` + pathID(p.ID) + `">` + uiIcon("more") + `</a></div></article>`)
 	}
 	if b.Len() == 0 {
 		return emptyState("这里还没有可显示的内容", "发布一条动态，或者先去发现感兴趣的社群。", "/discover", "发现社群")

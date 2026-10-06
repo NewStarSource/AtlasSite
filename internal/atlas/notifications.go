@@ -14,7 +14,7 @@ func (app *App) notificationRoutes(router *chi.Mux) {
 		if i == nil {
 			return
 		}
-		rows, err := app.db.Query("SELECT id,kind,object_id,post_id,read_at FROM notifications WHERE user_id=? AND created_at>? ORDER BY created_at DESC,id LIMIT 100", i.ID, time.Now().Add(-180*24*time.Hour).Unix())
+		rows, err := app.db.Query("SELECT id,kind,object_id,post_id,read_at,created_at FROM notifications WHERE user_id=? AND created_at>? ORDER BY created_at DESC,id LIMIT 100", i.ID, time.Now().Add(-180*24*time.Hour).Unix())
 		if err != nil {
 			fail(w, err)
 			return
@@ -22,23 +22,24 @@ func (app *App) notificationRoutes(router *chi.Mux) {
 		type item struct {
 			id, kind, object, post string
 			read                   sql.NullInt64
+			created                int64
 		}
 		var items []item
 		for rows.Next() {
 			var n item
-			rows.Scan(&n.id, &n.kind, &n.object, &n.post, &n.read)
+			rows.Scan(&n.id, &n.kind, &n.object, &n.post, &n.read, &n.created)
 			items = append(items, n)
 		}
 		rows.Close()
-		body := pageHeading("NOTIFICATIONS", "站内通知", "回复、订阅讨论与处理结论的更新。", `<a class="btn" href="/settings">通知偏好</a>`)
+		body := pageHeading("NOTIFICATIONS", "通知", "回复、订阅讨论与处理结论的更新。", `<a class="btn" href="/settings">通知偏好</a>`)
 		shown := 0
 		for _, n := range items {
-			label, target := "事务状态更新", "/my/cases/"+pathID(n.object)
+			label, target := "请求状态更新", "/my/cases/"+pathID(n.object)
 			if n.kind == "post" {
 				if !app.postVisible(n.object, i.ID) {
 					continue
 				}
-				label, target = "你订阅的社群或主题有新讨论", "/p/"+pathID(n.object)
+				label, target = "订阅有新讨论", "/p/"+pathID(n.object)
 			}
 			if n.kind == "reply" {
 				if !app.replyVisible(n.object, i.ID) {
@@ -49,14 +50,24 @@ func (app *App) notificationRoutes(router *chi.Mux) {
 				if enabled == 0 {
 					continue
 				}
-				label, target = "你参与的讨论有新回复", "/p/"+pathID(n.post)
+				label, target = "收到新回复", "/p/"+pathID(n.post)
 			}
 			shown++
-			body += `<article class="notification-card"><span class="avatar avatar-small">↳</span><a href="` + target + `">` + label + `</a>`
+
+			class := "notification-item"
 			if !n.read.Valid {
-				body += formStart(r, "/api/v1/notifications/"+pathID(n.id)+"/read") + `<button>标记已读</button></form>`
+				class += " unread"
 			}
-			body += formStart(r, "/api/v1/notifications/"+pathID(n.id)+"/delete") + `<button>删除通知</button></form></article>`
+			kindLabel := map[string]string{"post": "社群", "reply": "回复"}[n.kind]
+			if kindLabel == "" {
+				kindLabel = "请求"
+			}
+			body += `<article class="` + class + `"><header class="notification-header"><span class="notification-type">` + kindLabel + `</span><time class="notification-time">` + formatTime(time.Unix(n.created, 0)) + `</time></header><div class="notification-content"><a href="` + target + `">` + label + `</a></div><div class="notification-actions">`
+			if !n.read.Valid {
+				body += formStart(r, "/api/v1/notifications/"+pathID(n.id)+"/read") + `<button class="notification-link">标为已读</button></form>`
+			}
+			body += formStart(r, "/api/v1/notifications/"+pathID(n.id)+"/delete") + `<button class="notification-link">删除</button></form></div></article>`
+
 		}
 		if shown == 0 {
 			body += emptyState("暂时没有新通知", "参与讨论，或订阅感兴趣的社群。新的更新会出现在这里。", "/discover", "发现社群")

@@ -13,26 +13,62 @@ document.addEventListener("DOMContentLoaded", () => {
     const save = async () => {
       if (!draftID || !dirty || busy || submitting) return;
       busy = true; const savedRevision = revision;
-      if(status) status.textContent = "正在保存私人草稿…";
+      if(status) status.textContent = "正在保存草稿…";
       try {
         const response = await fetch("/api/v1/drafts/" + encodeURIComponent(draftID), {method:"POST", body:new URLSearchParams(new FormData(editor)), headers:{Accept:"application/json"}});
         const data = await response.json(); if(!response.ok) throw new Error(message(data,response.status));
         editor.elements.version.value = data.version;
         dirty = revision !== savedRevision;
-        if(status) status.textContent = dirty ? "有新的修改，等待保存…" : "私人草稿已保存 · " + new Date().toLocaleTimeString("zh-CN",{hour:"2-digit",minute:"2-digit"});
+        if(status) status.textContent = dirty ? "待保存" : "已保存 · " + new Date().toLocaleTimeString("zh-CN",{hour:"2-digit",minute:"2-digit"});
       } catch(error) {if(status) status.textContent=error.message;} finally {busy=false;}
     };
     if(draftID) setInterval(save,15000);
     editor.querySelector('button[formaction]')?.addEventListener("click", event => {event.preventDefault();touch();save();});
-    editor.querySelector("[data-preview]")?.addEventListener("click", async event => {
-      const button=event.currentTarget;button.disabled=true;
-      try {const response=await fetch("/api/v1/preview",{method:"POST",body:new URLSearchParams(new FormData(editor)),headers:{Accept:"text/html"}});if(!response.ok)throw new Error("预览未完成，请重试。");const output=document.querySelector("[data-preview-output]");output.innerHTML=await response.text();output.scrollIntoView({block:"nearest"});}
-      catch(error){if(status)status.textContent=error.message;}finally{button.disabled=false;}
-    });
+    let previewTimer, previewRequest, previewRevision = 0;
+    const editPanel = editor.querySelector("[data-edit-panel]");
+    const previewPanel = editor.querySelector("[data-preview-panel]");
+    const modes = editor.querySelectorAll("[data-editor-mode]");
+    const smallScreen = window.matchMedia("(max-width: 1023px)");
+    let mode = "edit";
+    const applyMode = () => {
+      if (!editPanel || !previewPanel) return;
+      editPanel.hidden = smallScreen.matches && mode === "preview";
+      previewPanel.hidden = smallScreen.matches && mode === "edit";
+      modes.forEach(button => {
+        const active = button.dataset.editorMode === mode;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", String(active));
+      });
+    };
+    smallScreen.addEventListener("change", applyMode);
+    applyMode();
+    const preview = async () => {
+      const output = editor.querySelector("[data-preview-output]");
+      if (!output) return;
+      const current = ++previewRevision;
+      previewRequest?.abort();
+      previewRequest = new AbortController();
+      try {
+        const response = await fetch("/api/v1/preview", {method:"POST",body:new URLSearchParams(new FormData(editor)),headers:{Accept:"text/html"},signal:previewRequest.signal});
+        if (!response.ok) throw new Error("预览未完成，请重试。");
+        const html = await response.text();
+        if (current === previewRevision) output.innerHTML = html;
+      } catch(error) {
+        if (error.name !== "AbortError" && current === previewRevision && status) status.textContent = error.message;
+      }
+    };
+    modes.forEach(button => button.addEventListener("click", () => {
+      mode = button.dataset.editorMode;
+      applyMode();
+      if (mode === "preview") preview();
+    }));
+    const queuePreview = () => {clearTimeout(previewTimer);previewTimer = setTimeout(preview, 300);};
+    editor.elements.content.addEventListener("input", queuePreview);
+    if (editor.elements.content.value) queuePreview();
     editor.querySelectorAll("[data-insert]").forEach(button=>button.addEventListener("click",()=>{
       const input=editor.elements.content;const selected=input.value.slice(input.selectionStart,input.selectionEnd);const type=button.dataset.insert;
       const text=type==="bold"?"**"+(selected||"重点内容")+"**":type==="heading"?"\n## "+(selected||"小标题")+"\n":"["+(selected||"链接文字")+"](https://)";
-      input.setRangeText(text,input.selectionStart,input.selectionEnd,"end");input.focus();touch();
+      input.setRangeText(text,input.selectionStart,input.selectionEnd,"end");input.focus();touch();queuePreview();
     }));
     const upload=document.querySelector("[data-upload-form]");
     upload?.addEventListener("submit",async event=>{
@@ -40,11 +76,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const feedback=upload.querySelector("[data-upload-status]");const file=upload.elements.image.files[0];
       if(!file)return;if(file.size>8*1024*1024){feedback.textContent="图片超过 8 MiB，请缩小后上传。";return;}
       if((editor.elements.content.value.match(/!\[[^\]]*\]\(\/media\//g)||[]).length>=4){feedback.textContent="每条动态最多 4 张图片。";return;}
-      uploading=true;const button=upload.querySelector("button");button.disabled=true;feedback.textContent="正在检查并上传图片…";
+      uploading=true;const button=upload.querySelector("button");button.disabled=true;feedback.textContent="上传中…";
       try {const response=await fetch(upload.action,{method:"POST",body:new FormData(upload),headers:{Accept:"application/json"}});const data=await response.json();if(!response.ok)throw new Error(message(data,response.status));
-        const input=editor.elements.content;input.setRangeText("\n"+data.markdown+"\n",input.selectionStart,input.selectionEnd,"end");touch();
+        const input=editor.elements.content;input.setRangeText("\n"+data.markdown+"\n",input.selectionStart,input.selectionEnd,"end");touch();queuePreview();
         const image=document.createElement("img");image.src="/media/"+encodeURIComponent(data.id)+"/thumbnail";image.alt="已插入正文的自有图片";upload.querySelector("[data-upload-preview]").appendChild(image);
-        feedback.textContent="图片已插入正文，继续编辑即可。";upload.elements.image.value="";
+        feedback.textContent="图片已插入正文";upload.elements.image.value="";
       }catch(error){feedback.textContent=error.message;}finally{uploading=false;button.disabled=false;}
     });
   }
@@ -52,11 +88,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if(event.submitter?.hasAttribute("formaction"))return;event.preventDefault();if(submitting)return;
     const feedback=form.querySelector("[data-form-error]");feedback.hidden=false;
     if(uploading||busy){feedback.textContent="图片或草稿正在保存，请稍等后再提交。";return;}
-    submitting=true;const button=event.submitter;button.disabled=true;feedback.textContent="正在提交…";
+    submitting=true;const button=event.submitter;if(button)button.disabled=true;feedback.textContent="正在提交…";
     try {const response=await fetch(form.action,{method:"POST",body:new URLSearchParams(new FormData(form)),headers:{Accept:"application/json"}});
       if(!response.ok){const data=await response.json();throw new Error(message(data,response.status));}
       if(response.redirected){dirty=false;window.location.assign(response.url);}else{feedback.textContent="已保存。";}
-    }catch(error){feedback.textContent=error.message;}finally{submitting=false;button.disabled=false;}
+    }catch(error){feedback.textContent=error.message;}finally{submitting=false;if(button)button.disabled=false;}
   }));
   if(reply){
     const target=reply.querySelector("[data-reply-target]");

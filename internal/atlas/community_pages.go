@@ -46,21 +46,28 @@ func (app *App) communityPage(w http.ResponseWriter, r *http.Request) {
 	if c.Verified {
 		verified = "来源已核验"
 	}
-	body := breadcrumb + `<header class="community-header"><span class="badge badge-soft">社群</span><h1>` + esc(c.Name) + `</h1><p class="community-description">` + esc(c.Description) + `</p><div class="action-row"><span class="badge">` + verified + `</span><span class="badge">` + map[bool]string{true: "待分类", false: "开放讨论"}[c.Status == "uncategorized"] + `</span><a class="btn btn-primary" href="` + base + `/new">＋ 发布讨论</a></div></header><nav class="tabs" aria-label="社群内容">`
-	for _, tab := range [][2]string{{"", "讨论"}, {"announcements", "公告"}, {"guide", "新人指南"}, {"collections", "讨论合集"}, {"about", "社群介绍"}} {
+	body := breadcrumb + `<header class="community-header"><h1 class="community-title">` + esc(c.Name) + `</h1><p class="community-description">` + esc(c.Description) + `</p><div class="community-meta">` + app.subscriptionControl(r, "community", c.ID) + `<a class="btn btn-secondary" href="` + base + `/new">发布</a></div></header><nav class="tabs" aria-label="社群内容">`
+	for _, tab := range [][2]string{{"", "最新内容"}, {"announcements", "公告"}, {"guide", "新人指南"}, {"collections", "合集"}, {"about", "关于"}} {
 		class := ""
 		if tab[0] == view {
 			class = ` class="active" aria-current="page"`
 		}
-		body += `<a href="` + base + map[bool]string{true: "", false: "/" + tab[0]}[tab[0] == ""] + `"` + class + `>` + tab[1] + `</a>`
+		suffix := ""
+		if tab[0] != "" {
+			suffix = "/" + tab[0]
+		}
+		body += `<a href="` + base + suffix + `"` + class + `>` + tab[1] + `</a>`
 	}
-	body += `</nav><div class="page-columns"><section>`
+	body += `</nav><section>`
+
 	topics, err := app.listTopics(c.ID)
 	if err != nil {
 		fail(w, err)
 		return
 	}
 	if view == "" {
+
+		body += `<div class="tools-grid"><a class="tool-card" href="` + base + `/announcements"><h3 class="tool-title">公告</h3></a><a class="tool-card" href="` + base + `/guide"><h3 class="tool-title">新人指南</h3></a><a class="tool-card" href="` + base + `/collections"><h3 class="tool-title">讨论合集</h3></a></div>`
 		if len(topics) > 0 {
 			body += `<div class="topic-list">`
 			for _, t := range topics {
@@ -73,7 +80,7 @@ func (app *App) communityPage(w http.ResponseWriter, r *http.Request) {
 			fail(w, e)
 			return
 		}
-		body += `<div class="section-heading"><h2>最近讨论</h2><span class="muted">按发布时间</span></div><div class="feed-list">` + app.postCards(posts, viewer) + `</div>`
+		body += `<div class="section-heading"><h2 class="sr-only">最近讨论</h2></div><div class="feed-list">` + app.postCards(posts, viewer) + `</div>`
 	} else if view == "about" {
 		body += `<section class="panel prose"><h2>关于这个社群</h2><p>` + esc(c.Description) + `</p><h3>接触方式</h3><p>` + esc(c.ContactMethod) + `</p><h3>来源与许可</h3><p>` + verified + ` · ` + esc(c.SourceLicense) + `</p>`
 		if safeSource(c.SourceURL) {
@@ -127,14 +134,7 @@ func (app *App) communityPage(w http.ResponseWriter, r *http.Request) {
 			body += emptyState("这里还没有公开内容", "有新的公开内容时，会显示在这里。", base, "返回社群讨论")
 		}
 	}
-	body += `</section><aside class="aside-panel"><section class="panel"><p class="eyebrow">STAY CONNECTED</p><h3>订阅这个社群</h3><p>把感兴趣的讨论留在自己的订阅中。</p>` + app.subscriptionForm(r, "community", c.ID) + `</section><section class="panel"><h3>社群主题</h3><div class="link-list">`
-	for _, t := range topics {
-		body += `<a href="` + base + `/t/` + pathID(t.Slug) + `">` + esc(t.Name) + `</a>`
-	}
-	if len(topics) == 0 {
-		body += `<p>尚无独立主题。</p>`
-	}
-	body += `</div><p><a href="` + base + `/about">了解来源与接触方式 →</a></p></section></aside></div>`
+	body += `</section>`
 	app.renderPage(w, r, c.Name, "community", body)
 }
 
@@ -182,7 +182,7 @@ func (app *App) topicPage(w http.ResponseWriter, r *http.Request) {
 	if i != nil {
 		viewer = i.ID
 	}
-	app.renderPage(w, r, name, "topic", `<nav class="breadcrumb"><a href="/c/`+pathID(c.Slug)+`">`+esc(c.Name)+`</a><span>/</span><span>主题讨论</span></nav>`+pageHeading("TOPIC", name, description, "")+`<section class="panel">`+app.subscriptionForm(r, "topic", id)+`</section><div class="feed-list">`+app.postCards(selected, viewer)+`</div>`)
+	app.renderPage(w, r, name, "topic", `<nav class="breadcrumb"><a href="/c/`+pathID(c.Slug)+`">`+esc(c.Name)+`</a><span>/</span><span>主题讨论</span></nav>`+pageHeading("TOPIC", name, description, "")+`<section class="panel">`+app.subscriptionControl(r, "topic", id)+`</section><div class="feed-list">`+app.postCards(selected, viewer)+`</div>`)
 }
 func (app *App) oldCommunityPath(w http.ResponseWriter, r *http.Request) {
 	var slug string

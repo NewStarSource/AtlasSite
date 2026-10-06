@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -57,12 +56,60 @@ func (app *App) registerUserRoutes(router *chi.Mux) {
 			fail(w, err)
 			return
 		}
-		body := `<section class="panel"><div class="profile-header"><span class="avatar">○</span><div><h1>` + esc(u.Name) + `</h1><p class="muted">加入于 ` + formatTime(u.CreatedAt) + `</p><p><a href="/u/` + pathID(id) + `/profile">查看完整资料</a> · <a href="/u/` + pathID(id) + `/subscriptions">社群与主题订阅</a></p></div></div></section><div class="section-heading"><h2>最近的帖子</h2></div>` + app.postCards(posts, viewer) + `<h2>最近的回复</h2>`
-		for _, reply := range replies {
-			if app.replyVisible(reply.ID, viewer) {
-				body += `<article class="panel"><a href="/p/` + pathID(reply.PostID) + `#reply-` + pathID(reply.ID) + `">` + esc(reply.PostTitle) + `</a><div class="prose">` + renderMarkdown(reply.Content) + `</div></article>`
+
+		var profile publicProfile
+		if app.secret != "" {
+			var accountID string
+			if app.db.QueryRow("SELECT account_id FROM users WHERE id=?", id).Scan(&accountID) == nil {
+				_ = app.getInternal(r.Context(), "/internal/identity/profile?account_id="+url.QueryEscape(accountID), &profile)
 			}
 		}
+		name := u.Name
+		if profile.DisplayName != "" {
+			name = profile.DisplayName
+		}
+		body := `<header class="profile-header"><span class="avatar">` + esc(avatarInitial(name)) + `</span><div class="profile-info"><h1 class="profile-name">` + esc(name) + `</h1>`
+		if profile.Bio != "" {
+			body += `<p class="profile-bio">` + esc(profile.Bio) + `</p>`
+		}
+		if profile.Location != "" {
+			body += `<p class="profile-meta">` + esc(profile.Location) + `</p>`
+		}
+		if safeSource(profile.Website) {
+			body += `<a href="` + esc(profile.Website) + `" rel="noopener noreferrer">个人网站</a>`
+		}
+		body += `</div>`
+		if viewer == id {
+			body += `<a class="btn btn-secondary" href="` + esc(app.config.AccountOrigin) + `/profile">编辑资料</a>`
+		}
+		body += `</header><nav class="settings-tabs" aria-label="个人内容">`
+		tab := r.URL.Query().Get("tab")
+		if tab != "replies" {
+			tab = "posts"
+		}
+		for _, link := range [][3]string{{"posts", "内容", "/u/" + pathID(id)}, {"replies", "回复", "/u/" + pathID(id) + "?tab=replies"}, {"communities", "社群", "/u/" + pathID(id) + "/subscriptions"}} {
+			class := ""
+			if link[0] == tab {
+				class = ` class="active" aria-current="page"`
+			}
+			body += `<a href="` + link[2] + `"` + class + `>` + link[1] + `</a>`
+		}
+		body += `</nav>`
+		if tab == "posts" {
+			body += `<div class="feed">` + app.postCards(posts, viewer) + `</div>`
+		} else {
+			shown := 0
+			for _, reply := range replies {
+				if app.replyVisible(reply.ID, viewer) {
+					shown++
+					body += `<article class="post"><a class="post-community" href="/p/` + pathID(reply.PostID) + `#reply-` + pathID(reply.ID) + `">` + esc(reply.PostTitle) + `</a><div class="prose">` + renderMarkdown(reply.Content) + `</div></article>`
+				}
+			}
+			if shown == 0 {
+				body += emptyState("暂无回复", "", "/", "浏览内容")
+			}
+		}
+
 		if i != nil && i.ID != id {
 			body += formStart(r, "/api/v1/blocks/"+pathID(id)) + field("blocked", "true") + `<button>屏蔽该用户</button></form>`
 		}
@@ -107,7 +154,7 @@ func (app *App) registerUserRoutes(router *chi.Mux) {
 			fail(w, err)
 			return
 		}
-		app.renderPage(w, r, "我的收藏", "bookmarks", pageHeading("BOOKMARKS", "我的收藏", "给值得再读的内容留一个位置。", `<a class="btn" href="/">浏览动态</a>`)+`<div class="feed-list">`+app.postCards(posts, i.ID)+`</div>`)
+		app.renderPage(w, r, "我的收藏", "bookmarks", pageHeading("BOOKMARKS", "我的收藏", "", `<a class="btn" href="/">浏览动态</a>`)+`<div class="feed-list">`+app.postCards(posts, i.ID)+`</div>`)
 	})
 	router.Post("/api/v1/p/{id}/bookmark", func(w http.ResponseWriter, r *http.Request) { app.setInteraction(w, r, "bookmark") })
 	router.Post("/api/v1/p/{id}/like", func(w http.ResponseWriter, r *http.Request) { app.setInteraction(w, r, "like") })
@@ -162,10 +209,17 @@ func (app *App) searchPage(w http.ResponseWriter, r *http.Request) {
 		fail(w, errInput)
 		return
 	}
-	body := pageHeading("SEARCH", "站内搜索", "寻找社群、动态、主题或用户化名。", "") + `<section class="panel"><form class="search-form" action="/search"><input aria-label="搜索关键词" placeholder="输入感兴趣的关键词" type="search" name="q" value="` + esc(q) + `" maxlength="100"><select aria-label="搜索类型" name="type"><option value="">全部</option><option value="community">社群</option><option value="post">动态</option><option value="topic">主题</option><option value="user">用户化名</option></select><button class="btn btn-primary">搜索</button></form><p class="field-help">支持连续中文关键词，不记录搜索原词。</p></section>`
-	if kind != "" {
-		body = strings.Replace(body, `value="`+esc(kind)+`">`, `value="`+esc(kind)+`" selected>`, 1)
+
+	body := `<h1 class="sr-only">搜索</h1><form class="search-header" action="/search"><div class="search-input-container"><svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input class="search-input" aria-label="搜索关键词" placeholder="搜索内容、社群或用户…" type="search" name="q" value="` + esc(q) + `" maxlength="100">` + field("type", kind) + `</div><button class="btn btn-secondary">搜索</button></form><nav class="filter-group" aria-label="搜索类型">`
+	for _, filter := range [][2]string{{"", "全部"}, {"post", "内容"}, {"community", "社群"}, {"topic", "主题"}, {"user", "用户"}} {
+		class := "filter-btn"
+		if filter[0] == kind {
+			class += " active"
+		}
+		body += `<a class="` + class + `" href="/search?q=` + esc(url.QueryEscape(q)) + `&amp;type=` + filter[0] + `">` + filter[1] + `</a>`
 	}
+	body += `</nav>`
+
 	i, _, _ := app.currentIdentity(r)
 	viewer := ""
 	if i != nil {

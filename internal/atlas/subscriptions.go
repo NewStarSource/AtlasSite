@@ -56,6 +56,20 @@ func (app *App) subscriptionTarget(kind, object string) (string, string, error) 
 	}
 	return "", "", errInput
 }
+
+func (app *App) subscriptionControl(r *http.Request, kind, object string) string {
+	i, _, _ := app.currentIdentity(r)
+	if i == nil {
+		return `<a class="btn" href="/login">订阅</a>`
+	}
+	var count int
+	app.db.QueryRow("SELECT count(*) FROM subscriptions WHERE user_id=? AND kind=? AND object_id=?", i.ID, kind, object).Scan(&count)
+	label, subscribed := "订阅", "true"
+	if count > 0 {
+		label, subscribed = "取消订阅", "false"
+	}
+	return formStart(r, "/api/v1/subscriptions") + field("kind", kind) + field("object_id", object) + field("subscribed", subscribed) + `<button class="btn">` + label + `</button></form>`
+}
 func (app *App) setSubscription(w http.ResponseWriter, r *http.Request) {
 	i := app.contentIdentity(w, r)
 	if i == nil {
@@ -119,7 +133,7 @@ func (app *App) subscriptionPage(w http.ResponseWriter, r *http.Request, owner s
 		items = append(items, item)
 	}
 	rows.Close()
-	body := pageHeading("SUBSCRIPTIONS", alias+"的订阅", "订阅感兴趣的社群与主题，按需要接收新讨论通知。", `<a class="btn" href="/discover">发现更多社群</a>`)
+	body := pageHeading("SUBSCRIPTIONS", alias+"的订阅", "", `<a class="btn" href="/discover">发现更多社群</a>`)
 	count := 0
 	for _, item := range items {
 		name, path, err := app.subscriptionTarget(item.kind, item.object)

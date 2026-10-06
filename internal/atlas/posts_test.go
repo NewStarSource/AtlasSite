@@ -261,7 +261,7 @@ func TestHomepageFeed(t *testing.T) {
 	}
 
 	body := response.Body.String()
-	if !strings.Contains(body, "首页动态") {
+	if !strings.Contains(body, "最新发布") {
 		t.Fatal("homepage title not found")
 	}
 

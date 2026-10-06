@@ -61,12 +61,14 @@ func TestUserActivityPage(t *testing.T) {
 		t.Fatal("post title not found in response")
 	}
 
-	if !strings.Contains(body, "测试回复") {
-		t.Fatal("reply content not found in response")
+	if !strings.Contains(body, "/u/"+identityID+"?tab=replies") || strings.Contains(body, "测试回复") {
+		t.Fatal("activity tabs are missing or reply content leaked into the posts tab")
 	}
-
-	if !strings.Contains(body, "查看完整资料") {
-		t.Fatal("profile link not found in response")
+	response = httptest.NewRecorder()
+	request = httptest.NewRequest("GET", config.Origin+"/u/"+identityID+"?tab=replies", nil)
+	app.Handler().ServeHTTP(response, request)
+	if response.Code != 200 || !strings.Contains(response.Body.String(), "测试回复") {
+		t.Fatal("reply content not found in the replies tab")
 	}
 
 	// Test non-existent user returns 404

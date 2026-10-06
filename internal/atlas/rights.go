@@ -31,7 +31,7 @@ func (app *App) rightsRoutes(router *chi.Mux) {
 	router.Post("/api/v1/me/export", app.exportOwn)
 	router.Post("/api/v1/me/deactivate", app.deactivateAtlas)
 	router.Get("/recover", func(w http.ResponseWriter, r *http.Request) {
-		app.renderPage(w, r, "恢复账户", "settings", pageHeading("ACCOUNT RECOVERY", "恢复账户", "注销后 30 天内，可验证原有账户身份并申请恢复。", "")+`<section class="panel"><h2>前往新星账户验证</h2><p>使用原有用户名与密码完成恢复，然后重新登录星图。旧会话不会复活，已经执行的内容删除也不会自动撤销。</p><a class="btn btn-primary" href="`+esc(app.config.AccountOrigin)+`/recover">前往新星账户恢复 ↗</a><a class="btn" href="/login">重新登录星图</a></section>`)
+		app.renderPage(w, r, "恢复账户", "settings", pageHeading("ACCOUNT RECOVERY", "恢复账户", "注销后 30 天内，可验证原有账户身份并申请恢复。", "")+`<section class="panel"><h2>前往新星账户验证</h2><p>30 天内验证原密码恢复。旧会话和已删除内容不恢复。</p><a class="btn btn-primary" href="`+esc(app.config.AccountOrigin)+`/recover">前往新星账户恢复 ↗</a><a class="btn" href="/login">重新登录星图</a></section>`)
 	})
 }
 func (app *App) settingsPage(w http.ResponseWriter, r *http.Request) {
@@ -50,7 +50,7 @@ func (app *App) settingsPage(w http.ResponseWriter, r *http.Request) {
 		}
 		return ""
 	}
-	title, description := "隐私与通知偏好", "决定哪些关系公开，以及哪些讨论会通知你。"
+	title, description := "设置", "决定哪些关系公开，以及哪些讨论会通知你。"
 	if r.URL.Path == "/settings/blocks" {
 		title, description = "屏蔽管理", "屏蔽后，双方不能通过星图继续互动。"
 	}
@@ -59,7 +59,7 @@ func (app *App) settingsPage(w http.ResponseWriter, r *http.Request) {
 	}
 	body := pageHeading("PREFERENCES", title, description, "") + settingsNav(r.URL.Path)
 	if r.URL.Path == "/settings" {
-		body += `<section class="panel"><h2>关系与通知</h2>` + formStart(r, "/api/v1/settings") + `<label class="check-row"><input type="checkbox" name="hide_relations" value="1"` + checked(hidden) + `><span>隐藏全部社群关系<small>他人无法查看你的社群和主题订阅列表。</small></span></label><label class="check-row"><input type="checkbox" name="reply_notifications" value="1"` + checked(reply) + `><span>接收普通回复通知<small>你参与的讨论有新回复时，在站内通知你。</small></span></label><p class="field-help">安全与案件结论通知仍会保留。社群的新讨论通知可在订阅页分别调整。</p><button class="btn btn-primary">保存设置</button></form></section><section class="panel"><h2>公开个人资料</h2><p>显示名称、简介和个人网站由新星账户管理，星图仅展示公开字段。</p><a class="btn" href="` + esc(app.config.AccountOrigin) + `/profile">编辑个人资料 ↗</a></section>`
+		body += `<section class="panel"><h2>关系与通知</h2>` + formStart(r, "/api/v1/settings") + `<label class="check-row"><input type="checkbox" name="hide_relations" value="1"` + checked(hidden) + `><span>隐藏全部社群关系</span></label><label class="check-row"><input type="checkbox" name="reply_notifications" value="1"` + checked(reply) + `><span>接收普通回复通知</span></label><p class="field-help">安全与请求通知始终保留。</p><button class="btn btn-primary">保存设置</button></form></section><section class="panel"><h2>个人资料</h2><a class="btn" href="` + esc(app.config.AccountOrigin) + `/profile">编辑资料</a></section>`
 		app.renderPage(w, r, title, "settings", body)
 		return
 	}
@@ -101,7 +101,7 @@ func (app *App) settingsPage(w http.ResponseWriter, r *http.Request) {
 		}
 		rows.Close()
 	}
-	body += `<section class="panel"><h2>先保存自己的数据</h2><p>导出只包含你的资料、内容与偏好；下载前需要重新确认身份。</p><a class="btn" href="/my/export">前往数据导出</a></section><section class="panel danger-panel"><h2>注销星图与新星账户</h2><p>注销立即撤销会话并停止新投稿。30 天内可通过新星账户恢复，恢复不会自动撤销已经执行的内容删除。</p><p><a href="/security">先重新确认身份 →</a></p>` + formStart(r, "/api/v1/me/deactivate") + `<label class="check-row"><input type="checkbox" name="retain_content" value="1"` + checked(retain) + `><span>保留全部已公开内容<small>保留内容继续显示化名和“已注销”标记。</small></span></label><details><summary>仅保留部分内容</summary><p class="field-help">可选择最近 100 条动态和 100 条回复。原帖已删除时，回复不能独立公开。</p><div class="retain-list">` + choices.String() + `</div></details><label class="check-row"><input type="checkbox" name="confirm" value="deactivate" required><span>我已了解注销及内容处理方式，确认注销</span></label><button class="btn-danger">注销并撤销全部会话</button></form></section><section class="panel"><h2>恢复已注销账户</h2><p>在 30 天恢复期内，前往新星账户验证原有用户名与密码。恢复后需重新登录星图。</p><a class="btn" href="/recover">查看恢复步骤</a></section>`
+	body += `<section class="panel"><h2>数据导出</h2><a class="btn" href="/my/export">导出数据</a></section><section class="panel danger-panel"><h2>注销星图与新星账户</h2><p>注销立即退出，30 天内可恢复。删除的内容不会随恢复重现。</p><p><a href="/security">验证身份</a></p>` + formStart(r, "/api/v1/me/deactivate") + `<label class="check-row"><input type="checkbox" name="retain_content" value="1"` + checked(retain) + `><span>保留全部已公开内容<small>保留内容继续显示化名和“已注销”标记。</small></span></label><details><summary>仅保留部分内容</summary><p class="field-help">可选择最近 100 条动态和 100 条回复。原帖已删除时，回复不能独立公开。</p><div class="retain-list">` + choices.String() + `</div></details><label class="check-row"><input type="checkbox" name="confirm" value="deactivate" required><span>确认注销账户</span></label><button class="btn-danger">注销账户</button></form></section><section class="panel"><h2>恢复已注销账户</h2><p>注销后 30 天内可验证原密码恢复。</p><a class="btn" href="/recover">查看恢复步骤</a></section>`
 	app.renderPage(w, r, title, "settings", body)
 }
 func (app *App) updateSettings(w http.ResponseWriter, r *http.Request) {
@@ -173,13 +173,13 @@ func (app *App) caseForm(w http.ResponseWriter, r *http.Request, emergency bool)
 			return
 		}
 	}
-	body := pageHeading("FEEDBACK", title, "只提交处理所必需的信息，避免带入他人的私密材料。", `<a class="btn" href="/my/cases">我的请求</a>`) + `<section class="panel">` + formStart(r, "/api/v1/cases") + field("request_id", randomID()) + field("kind", kind) + field("object_id", r.URL.Query().Get("object_id"))
+	body := pageHeading("FEEDBACK", title, "", `<a class="btn" href="/my/cases">我的请求</a>`) + `<section class="panel">` + formStart(r, "/api/v1/cases") + field("request_id", randomID()) + field("kind", kind) + field("object_id", r.URL.Query().Get("object_id"))
 	if r.URL.Query().Get("object_id") == "" {
 		body += `<label for="report-url">内容链接（可选）</label><input id="report-url" name="object_url" placeholder="粘贴星图内的动态或回复链接">`
 	} else {
 		body += `<div class="notice">已关联你刚才选择的内容，不需要填写编号。</div>`
 	}
-	body += `<label for="report-detail">必要说明</label><textarea id="report-detail" name="detail" maxlength="4000" placeholder="描述发生了什么，以及希望得到的处理。" required></textarea><label class="check-row"><input type="checkbox" name="conflict" value="1"><span>涉及处理人员或利益冲突</span></label><p class="field-help">说明独立加密保存，结案后 30 天清理，不送外部 AI，也不进入普通长期备份。</p><button class="btn btn-primary">提交请求</button></form></section><div class="notice">紧急请求 24 小时内响应，普通举报和申诉 168 小时内初步处理。当前仅本地测试，未提供全天候真实值守。</div>`
+	body += `<label for="report-detail">必要说明</label><textarea id="report-detail" name="detail" maxlength="4000" placeholder="说明问题…" required></textarea><label class="check-row"><input type="checkbox" name="conflict" value="1"><span>涉及处理人员或利益冲突</span></label><p class="field-help">说明加密保存，结案后 30 天清理。</p><button class="btn btn-primary">提交请求</button></form></section><div class="notice">紧急请求 24 小时，普通请求 168 小时。本地测试无全天值守。</div>`
 	app.renderPage(w, r, title, "help", body)
 }
 func (app *App) submitCase(w http.ResponseWriter, r *http.Request) {
@@ -347,7 +347,7 @@ func (app *App) exportPage(w http.ResponseWriter, r *http.Request) {
 	if app.requireIdentity(w, r, false) == nil {
 		return
 	}
-	app.renderPage(w, r, "本人导出", "settings", pageHeading("YOUR DATA", "导出本人数据", "把自己的内容与偏好带走。下载文件请妥善保存。", "")+settingsNav("/my/export")+`<section class="panel"><h2>导出内容</h2><p>包含本人内容、草稿、可导出的自有图片、关系、设置、通知与案件最小状态。</p><p>排除举报证据、他人的私密资料和账户内部映射。</p><div class="notice">下载前，请先在登录与安全页面重新确认身份。</div><a class="btn" href="/security">重新确认身份</a>`+formStart(r, "/api/v1/me/export")+`<button class="btn btn-primary">生成并下载本人 ZIP</button></form></section>`)
+	app.renderPage(w, r, "本人导出", "settings", pageHeading("YOUR DATA", "导出本人数据", "把自己的内容与偏好带走。下载文件请妥善保存。", "")+settingsNav("/my/export")+`<section class="panel"><p>导出本人内容与偏好，排除举报证据和他人私密资料。</p><p>下载前需验证身份。</p><a class="btn" href="/security">验证身份</a>`+formStart(r, "/api/v1/me/export")+`<button class="btn btn-primary">下载 ZIP</button></form></section>`)
 }
 func (app *App) exportOwn(w http.ResponseWriter, r *http.Request) {
 	i := app.requireIdentity(w, r, true)

@@ -42,7 +42,7 @@ func TestCommunityRoutes(t *testing.T) {
 		if _, err := app.db.Exec(`INSERT INTO communities VALUES('hidden','hidden-comm','隐藏测试','描述',NULL,'pending','','','synthetic',0,?,?)`, now, now); err != nil {
 			t.Fatal(err)
 		}
-		for _, route := range []string{"/discover", "/c/test-comm", "/c/uncat-comm"} {
+		for _, route := range []string{"/discover", "/c/test-comm", "/c/uncat-comm", "/c/uncat-comm/about"} {
 			w := httptest.NewRecorder()
 			handler.ServeHTTP(w, httptest.NewRequest("GET", "http://127.0.0.1:4200"+route, nil))
 			if w.Code != 200 || strings.Contains(w.Body.String(), "隐藏测试") {
@@ -54,7 +54,7 @@ func TestCommunityRoutes(t *testing.T) {
 			if route == "/c/test-comm" && !strings.Contains(w.Body.String(), "/discover#direction-test-dir") {
 				t.Fatal("classification breadcrumb absent")
 			}
-			if route == "/c/uncat-comm" && !strings.Contains(w.Body.String(), "来源待核实") {
+			if route == "/c/uncat-comm/about" && !strings.Contains(w.Body.String(), "来源待核实") {
 				t.Fatal("verification status absent")
 			}
 		}

@@ -72,3 +72,24 @@ func TestReportContentLinksAndMarkdownExcerpt(t *testing.T) {
 		t.Fatal("markdown source leaked into card", summary)
 	}
 }
+
+func TestHomeComposerOpensEditorWithoutPublishing(t *testing.T) {
+	app := coreApp(t)
+	author := coreUser(t, app, "作者")
+	content := "首页合成内容\n<script>alert(1)</script>"
+	form := url.Values{"content": {content}}
+	page := author.call("POST", "/new", form, true)
+	mustStatus(t, page, 200)
+	if !strings.Contains(page.Body.String(), "首页合成内容") || strings.Contains(page.Body.String(), "<script>alert(1)</script>") {
+		t.Fatal("composer input was lost or rendered as unsafe HTML")
+	}
+	var posts, drafts int
+	app.db.QueryRow("SELECT count(*) FROM posts").Scan(&posts)
+	app.db.QueryRow("SELECT count(*) FROM drafts").Scan(&drafts)
+	if posts != 0 || drafts != 0 {
+		t.Fatal("opening the editor must not publish or save content")
+	}
+	mustStatus(t, author.call("POST", "/new", form, false), 403)
+	form.Set("content", strings.Repeat("字", 50001))
+	mustStatus(t, author.call("POST", "/new", form, true), 400)
+}

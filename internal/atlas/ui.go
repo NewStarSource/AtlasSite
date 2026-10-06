@@ -18,16 +18,23 @@ var siteCSS string
 //go:embed core.js
 var coreJS string
 
-func pageHeading(kicker, title, description, actions string) string {
-	return `<header class="page-heading"><div><div class="eyebrow">` + esc(kicker) + `</div><h1>` + esc(title) + `</h1><p>` + esc(description) + `</p></div><div class="action-row">` + actions + `</div></header>`
+func pageHeading(_ string, title string, _ string, actions string) string {
+	return `<header class="page-heading"><h1>` + esc(title) + `</h1><div class="action-row">` + actions + `</div></header>`
 }
 
-func emptyState(title, description, target, label string) string {
-	return `<div class="empty-state"><div class="empty-symbol" aria-hidden="true">◇</div><h2>` + esc(title) + `</h2><p>` + esc(description) + `</p><a class="btn" href="` + esc(target) + `">` + esc(label) + `</a></div>`
+func emptyState(title, _ string, target, label string) string {
+	return `<div class="empty-state"><h2>` + esc(title) + `</h2><a class="btn btn-secondary" href="` + esc(target) + `">` + esc(label) + `</a></div>`
+}
+
+func avatarInitial(name string) string {
+	for _, character := range strings.TrimSpace(name) {
+		return string(character)
+	}
+	return ""
 }
 
 func settingsNav(path string) string {
-	links := [][2]string{{"/my", "我的空间"}, {"/settings", "隐私偏好"}, {"/settings/blocks", "屏蔽管理"}, {"/my/export", "数据导出"}, {"/security", "登录与安全"}, {"/settings/account", "注销与恢复"}}
+	links := [][2]string{{"/my", "我的"}, {"/settings", "隐私"}, {"/settings/blocks", "屏蔽"}, {"/my/export", "导出"}, {"/security", "安全"}, {"/settings/account", "注销与恢复"}}
 	body := `<nav class="settings-tabs" aria-label="个人设置">`
 	for _, link := range links {
 		class := ""
@@ -48,6 +55,7 @@ func (app *App) uiRoutes(router *chi.Mux) {
 		router.Get("/c/{slug}/"+path, app.communityPage)
 	}
 	router.Get("/my", app.myPage)
+	router.Post("/new", app.editorPage)
 	router.Get("/settings/blocks", app.settingsPage)
 	router.Get("/settings/account", app.settingsPage)
 }
@@ -61,9 +69,9 @@ func caseLabel(value string) string {
 }
 
 func (app *App) helpPage(w http.ResponseWriter, r *http.Request) {
-	body := pageHeading("HELP & RIGHTS", "帮助与反馈", "让表达有边界，也让每一次反馈有去处。", `<a class="btn" href="/my/cases">我的请求</a>`)
-	body += `<div class="quick-links"><a class="link-card" href="/help/report"><strong>举报内容或提出申诉 ↗</strong><p>从内容详情页关联原文，提交必要说明。处理结论与申诉在我的请求中查看。</p></a><a class="link-card" href="/help/emergency"><strong>提交紧急请求 ↗</strong><p>可不登录提交。请保留受理编号，当前本地环境未提供全天值守。</p></a></div><section class="panel prose"><h2>开始使用星图</h2><p>从新星账户登录，找到感兴趣的社群，也可独立发布动态。正文支持 Markdown 和最多四张自有图片。</p><p>在编辑器上传图片后，图片会插入正文。未发布的图片仅本人可见，私人草稿也仅本人可见。</p><div class="action-row"><a class="btn" href="/discover">发现社群</a><a class="btn" href="/new">发布动态</a><a class="btn" href="/my/drafts">私人草稿</a></div></section><section class="panel prose"><h2>隐私与内容权利</h2><p>你可以隐藏社群关系、屏蔽其他身份、导出本人数据，或注销账户时选择保留内容。资料在新星账户编辑，密码始终只交给账户服务。</p><p>删除后，原帖、下级回复、图片、搜索结果与相关通知停止展示。受限旧正文一般最多保留 30 天，涉及未结争议时按案件期限冻结。</p><p>普通加密备份最长保留 12 个月，恢复前重放删除清单；私人草稿与举报说明不进入普通长期备份。</p><div class="action-row"><a class="btn" href="/settings">隐私偏好</a><a class="btn" href="/my/export">导出数据</a><a class="btn" href="/settings/account">注销与恢复</a></div></section><section class="panel"><h2>处理期限与运行状态</h2><p>紧急请求 24 小时内响应，普通举报与申诉 168 小时内初步处理。当前测试由项目负责人处理，尚未组成独立复核组；涉及处理者自身的申诉保持等待独立复核。</p><div class="action-row"><a class="btn" href="/status">运行状态</a><a class="btn" href="/config">本地配置说明</a></div></section>`
-	app.renderPage(w, r, "帮助与反馈", "help", body)
+	body := pageHeading("", "帮助", "", `<a href="/my/cases">我的请求</a>`)
+	body += `<div class="link-list"><a href="/help/report">举报内容 <span>→</span></a><a href="/help/emergency">紧急请求 <span>→</span></a><a href="/my/cases">举报与申诉 <span>→</span></a><a href="/my/export">导出数据 <span>→</span></a><a href="/settings/account">注销与恢复 <span>→</span></a></div><details class="panel"><summary>使用与权利说明</summary><p>发布自有文字与图片，并选择许可。私人草稿和未发布图片仅自己可见。</p><p>删除后，原内容及其下游停止展示；受限正文通常保留 30 天，争议材料按案件期限冻结。普通备份最多 12 个月，恢复前重放删除清单。</p><p>紧急请求 24 小时内响应，普通举报和申诉 168 小时内初步处理。当前本地测试不提供全天值守；利益冲突申诉等待独立复核。</p></details>`
+	app.renderPage(w, r, "帮助", "help", body)
 }
 
 func (app *App) myPage(w http.ResponseWriter, r *http.Request) {
@@ -76,18 +84,21 @@ func (app *App) myPage(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	body := pageHeading("YOUR SPACE", "我的空间", "内容、订阅与偏好，都可以从这里找到。", `<a class="btn btn-primary" href="/new">＋ 发布动态</a>`)
-	body += `<section class="panel profile-header"><span class="avatar">我</span><div><h2>` + esc(i.Alias) + `</h2><p class="muted">星图化名 · 公开内容以此身份展示</p><a href="/u/` + pathID(i.ID) + `">查看我的公开主页 →</a></div></section><div class="quick-links">`
-	for _, link := range [][4]string{{"/my/drafts", "私人草稿", "继续没有写完的想法，仅自己可见。", "SELECT count(*) FROM drafts WHERE author_id=? AND updated_at>unixepoch()-2592000"}, {"/my/bookmarks", "我的收藏", "回到想认真读完的内容。", "SELECT count(*) FROM post_bookmarks WHERE identity_id=?"}, {"/my/subscriptions", "社群与主题订阅", "管理订阅和新讨论通知。", "SELECT count(*) FROM subscriptions WHERE user_id=?"}, {"/my/cases", "举报与申诉", "查看受理状态与处理结论。", "SELECT count(*) FROM cases WHERE user_id=?"}} {
+	body := `<header class="profile-header"><span class="avatar">` + esc(avatarInitial(i.Alias)) + `</span><div><h1>` + esc(i.Alias) + `</h1><a href="/u/` + pathID(i.ID) + `">公开主页</a></div><a class="btn btn-secondary" href="` + esc(app.config.AccountOrigin) + `/profile">编辑资料</a></header><div class="quick-links">`
+	for _, link := range [][3]string{
+		{"/my/drafts", "草稿", "SELECT count(*) FROM drafts WHERE author_id=? AND updated_at>unixepoch()-2592000"},
+		{"/my/bookmarks", "收藏", "SELECT count(*) FROM post_bookmarks WHERE identity_id=?"},
+		{"/my/subscriptions", "订阅", "SELECT count(*) FROM subscriptions WHERE user_id=?"},
+		{"/my/cases", "举报与申诉", "SELECT count(*) FROM cases WHERE user_id=?"}} {
 		var count int
-		if err := app.db.QueryRow(link[3], i.ID).Scan(&count); err != nil {
+		if err := app.db.QueryRow(link[2], i.ID).Scan(&count); err != nil {
 			fail(w, err)
 			return
 		}
-		body += `<a class="link-card" href="` + link[0] + `"><span class="card-number">` + strconv.Itoa(count) + `</span><strong>` + link[1] + `</strong><p>` + link[2] + `</p></a>`
+		body += `<a class="link-card" href="` + link[0] + `"><strong>` + link[1] + `</strong><span class="card-number">` + strconv.Itoa(count) + `</span></a>`
 	}
-	body += `</div><section class="panel"><h2>账户与偏好</h2><div class="link-list"><a href="` + esc(app.config.AccountOrigin) + `/profile">编辑个人资料</a><a href="/settings">隐私与通知偏好</a><a href="/settings/blocks">屏蔽管理</a><a href="/my/export">导出本人数据</a><a href="/security">登录与安全</a><a href="/settings/account">注销与恢复</a></div></section><div class="section-heading"><h2>我的最近动态</h2><a href="/u/` + pathID(i.ID) + `">查看全部 →</a></div><div class="feed-list">` + app.postCards(posts, i.ID) + `</div>`
-	app.renderPage(w, r, "我的空间", "my", body)
+	body += `</div><nav class="settings-tabs"><a href="/settings">设置</a><a href="/security">安全</a><a href="/my/export">导出</a></nav><div class="section-heading"><h2>我的内容</h2><a href="/new">发布</a></div><div class="feed">` + app.postCards(posts, i.ID) + `</div>`
+	app.renderPage(w, r, "我的", "my", body)
 }
 
 type browserErrorWriter struct {
@@ -131,16 +142,16 @@ func (app *App) browserErrors(next http.Handler) http.Handler {
 		}
 		var data struct{ Code, Message string }
 		_ = json.Unmarshal(capture.body.Bytes(), &data)
-		title, message := "暂时无法完成", "请稍后重试；如果正在编辑，先保留已输入的文字。"
+		title, message := "服务暂时不可用", "请稍后重试。"
 		switch capture.status {
 		case 400:
 			title, message = "请检查提交的信息", "内容可能超过长度限制，或有必填项未完成。请返回检查后再提交。"
 		case 401:
 			title, message = "请先登录", "登录星图后，即可继续使用个人内容与账户功能。"
 		case 403:
-			title, message = "当前无法执行此操作", "请确认操作权限；导出和注销等操作需要先重新确认身份。"
+			title, message = "没有访问权限", "请检查身份或重新登录。"
 		case 404:
-			title, message = "这里暂时没有内容", "内容可能已删除、隐藏，或当前身份无法访问。你可以返回首页继续浏览。"
+			title, message = "页面未找到", "页面不存在，或内容已不可见。"
 		case 409:
 			title, message = "内容已在另一处更新", "为避免覆盖新内容，请保留当前文字，重新打开编辑页后再修改。"
 		case 429:
@@ -149,14 +160,16 @@ func (app *App) browserErrors(next http.Handler) http.Handler {
 		if data.Message != "" {
 			message = data.Message
 		}
-		body := pageHeading("NOTICE", title, message, "") + `<section class="panel"><div class="action-row"><a class="btn" href="/">回到首页</a><a class="btn" href="/my">我的空间</a><a class="btn" href="/help">帮助与反馈</a>`
+
+		body := `<section class="error-container"><div class="error-code">` + strconv.Itoa(capture.status) + `</div><h1>` + esc(title) + `</h1><p>` + esc(message) + `</p><div class="action-row"><a class="btn btn-primary" href="/">回到首页</a><a class="btn btn-secondary" href="/help">帮助</a>`
 		if capture.status == 401 {
-			body += `<a class="btn btn-primary" href="/login">登录星图</a>`
+			body += `<a class="btn" href="/login">登录</a>`
 		}
 		if data.Code == "REAUTH_REQUIRED" {
-			body += `<a class="btn btn-primary" href="/security">重新确认身份</a>`
+			body += `<a class="btn" href="/security">验证身份</a>`
 		}
 		body += `</div></section>`
+
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(capture.status)
 		_ = app.page.Execute(w, struct {
@@ -172,4 +185,12 @@ func licenseLabel(value string) string {
 		return "保留全部权利"
 	}
 	return value
+}
+
+func uiIcon(name string) string {
+	paths := map[string]string{
+		"reply":    `<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>`,
+		"bookmark": `<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>`,
+		"more":     `<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>`}
+	return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">` + paths[name] + `</svg>`
 }
