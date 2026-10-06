@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -56,10 +57,10 @@ func (app *App) registerUserRoutes(router *chi.Mux) {
 			fail(w, err)
 			return
 		}
-		body := `<h1>` + esc(u.Name) + `</h1><p>加入于 ` + formatTime(u.CreatedAt) + `</p><p><a href="/u/` + pathID(id) + `/profile">查看完整资料</a> · <a href="/u/` + pathID(id) + `/subscriptions">社群与主题订阅</a></p><h2>最近的帖子</h2>` + app.postCards(posts, viewer) + `<h2>最近的回复</h2>`
+		body := `<section class="panel"><div class="profile-header"><span class="avatar">○</span><div><h1>` + esc(u.Name) + `</h1><p class="muted">加入于 ` + formatTime(u.CreatedAt) + `</p><p><a href="/u/` + pathID(id) + `/profile">查看完整资料</a> · <a href="/u/` + pathID(id) + `/subscriptions">社群与主题订阅</a></p></div></div></section><div class="section-heading"><h2>最近的帖子</h2></div>` + app.postCards(posts, viewer) + `<h2>最近的回复</h2>`
 		for _, reply := range replies {
 			if app.replyVisible(reply.ID, viewer) {
-				body += `<article><a href="/p/` + pathID(reply.PostID) + `">` + esc(reply.PostTitle) + `</a><p>` + esc(reply.Content) + `</p></article>`
+				body += `<article class="panel"><a href="/p/` + pathID(reply.PostID) + `#reply-` + pathID(reply.ID) + `">` + esc(reply.PostTitle) + `</a><div class="prose">` + renderMarkdown(reply.Content) + `</div></article>`
 			}
 		}
 		if i != nil && i.ID != id {
@@ -89,10 +90,11 @@ func (app *App) registerUserRoutes(router *chi.Mux) {
 			respond(w, 503, map[string]string{"code": "PROFILE_UNAVAILABLE"})
 			return
 		}
-		body := `<h1>` + esc(alias) + `</h1><p>` + esc(profile.DisplayName) + `</p><p>` + esc(profile.Bio) + `</p><p>` + esc(profile.Location) + `</p>`
+		body := pageHeading("PUBLIC PROFILE", alias, "公开个人资料", `<a class="btn" href="/u/`+pathID(id)+`">返回公开主页</a>`) + `<section class="panel"><h2>` + esc(profile.DisplayName) + `</h2><p>` + esc(profile.Bio) + `</p><p class="muted">` + esc(profile.Location) + `</p>`
 		if safeSource(profile.Website) {
 			body += `<p><a rel="noopener noreferrer" href="` + esc(profile.Website) + `">个人网站</a></p>`
 		}
+		body += `</section>`
 		app.renderPage(w, r, "个人资料", "user", body)
 	})
 	router.Get("/my/bookmarks", func(w http.ResponseWriter, r *http.Request) {
@@ -105,7 +107,7 @@ func (app *App) registerUserRoutes(router *chi.Mux) {
 			fail(w, err)
 			return
 		}
-		app.renderPage(w, r, "我的收藏", "bookmarks", `<h1>我的收藏</h1>`+app.postCards(posts, i.ID))
+		app.renderPage(w, r, "我的收藏", "bookmarks", pageHeading("BOOKMARKS", "我的收藏", "给值得再读的内容留一个位置。", `<a class="btn" href="/">浏览动态</a>`)+`<div class="feed-list">`+app.postCards(posts, i.ID)+`</div>`)
 	})
 	router.Post("/api/v1/p/{id}/bookmark", func(w http.ResponseWriter, r *http.Request) { app.setInteraction(w, r, "bookmark") })
 	router.Post("/api/v1/p/{id}/like", func(w http.ResponseWriter, r *http.Request) { app.setInteraction(w, r, "like") })
@@ -160,7 +162,10 @@ func (app *App) searchPage(w http.ResponseWriter, r *http.Request) {
 		fail(w, errInput)
 		return
 	}
-	body := `<h1>站内搜索</h1><form action="/search"><input type="search" name="q" value="` + esc(q) + `" maxlength="100"><select name="type"><option value="">全部</option><option value="community">社群</option><option value="post">动态</option><option value="topic">主题</option><option value="user">用户化名</option></select><button>搜索</button></form><p>支持连续中文关键词；不会记录搜索原词。</p>`
+	body := pageHeading("SEARCH", "站内搜索", "寻找社群、动态、主题或用户化名。", "") + `<section class="panel"><form class="search-form" action="/search"><input aria-label="搜索关键词" placeholder="输入感兴趣的关键词" type="search" name="q" value="` + esc(q) + `" maxlength="100"><select aria-label="搜索类型" name="type"><option value="">全部</option><option value="community">社群</option><option value="post">动态</option><option value="topic">主题</option><option value="user">用户化名</option></select><button class="btn btn-primary">搜索</button></form><p class="field-help">支持连续中文关键词，不记录搜索原词。</p></section>`
+	if kind != "" {
+		body = strings.Replace(body, `value="`+esc(kind)+`">`, `value="`+esc(kind)+`" selected>`, 1)
+	}
 	i, _, _ := app.currentIdentity(r)
 	viewer := ""
 	if i != nil {

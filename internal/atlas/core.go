@@ -47,6 +47,10 @@ func (app *App) requireIdentity(w http.ResponseWriter, r *http.Request, sensitiv
 		return nil
 	}
 	if identity == nil {
+		if r.Method == "GET" && strings.Contains(r.Header.Get("Accept"), "text/html") {
+			http.Redirect(w, r, "/login", 303)
+			return nil
+		}
 		respond(w, 401, map[string]string{"code": "SESSION_REQUIRED"})
 		return nil
 	}
@@ -132,7 +136,14 @@ func (app *App) homePage(w http.ResponseWriter, r *http.Request) {
 	if i != nil {
 		viewer = i.ID
 	}
-	app.renderPage(w, r, "首页动态", "home", `<h1>首页动态</h1><p><a href="/new">发布动态</a> · <a href="/my/drafts">我的草稿</a></p>`+app.postCards(posts, viewer))
+	actions := `<a class="btn" href="/discover">发现社群 ↗</a>`
+	prompt := `<div class="composer-prompt"><span class="avatar avatar-small">✦</span><a href="/login">登录，和感兴趣的人一起讨论</a><a class="btn btn-primary" href="/login">去登录</a></div>`
+	if i != nil {
+		prompt = `<div class="composer-prompt"><span class="avatar avatar-small">我</span><a href="/new">有什么新的想法想分享？</a><a class="btn btn-primary" href="/new">写动态</a></div>`
+	}
+	body := pageHeading("COMMUNITY / DISCUSSION", "首页动态", "从一条想法开始，在感兴趣的社群继续讨论。", actions)
+	body += `<div class="page-columns"><section>` + prompt + `<div class="section-heading"><h2>最近发布</h2><span class="muted">按发布时间</span></div><div class="feed-list">` + app.postCards(posts, viewer) + `</div></section><aside class="aside-panel"><div class="panel"><p class="eyebrow">EXPLORE</p><h3>找到你的社群</h3><p>从领域、方向和主题出发，认识正在讨论同一件事的人。</p><div class="link-list"><a href="/discover">浏览社群目录</a><a href="/search">搜索社群与讨论</a><a href="/my/subscriptions">我的订阅</a></div></div><div class="panel panel-tint"><p class="eyebrow">BEFORE YOU POST</p><h3>分享，也尊重边界</h3><p>使用自己的文字与图片，选择合适的许可。内容有问题时，可从详情页提交反馈。</p><a href="/help">阅读使用说明 →</a></div></aside></div>`
+	app.renderPage(w, r, "首页动态", "home", body)
 }
 func (app *App) postCards(posts []Post, viewer string) string {
 	blockedAuthors := map[string]bool{}
@@ -153,14 +164,14 @@ func (app *App) postCards(posts []Post, viewer string) string {
 		if blockedAuthors[p.AuthorID] || p.Status != "published" {
 			continue
 		}
-		b.WriteString(`<article class="feed-item"><div class="feed-meta">` + publicAuthor(p) + ` · ` + formatTime(p.CreatedAt) + `</div><h2><a href="/p/` + pathID(p.ID) + `">` + esc(p.Title) + `</a></h2><p>` + esc(excerpt(p.Content, 150)) + `</p>`)
+		b.WriteString(`<article class="feed-item"><div class="feed-meta">` + publicAuthor(p) + ` · ` + formatTime(p.CreatedAt) + `</div><h2><a href="/p/` + pathID(p.ID) + `">` + esc(p.Title) + `</a></h2><p>` + esc(markdownExcerpt(p.Content, 150)) + `</p>`)
 		if p.CommunityID != "" {
 			b.WriteString(`<a href="/c/` + pathID(p.CommunitySlug) + `">` + esc(p.CommunityName) + `</a>`)
 		}
-		b.WriteString(`</article>`)
+		b.WriteString(`<div class="feed-stats"><span>讨论 ` + strconv.Itoa(p.ReplyCount) + ` · 收藏 ` + strconv.Itoa(p.BookmarkCount) + `</span><a href="/p/` + pathID(p.ID) + `">查看讨论 →</a></div></article>`)
 	}
 	if b.Len() == 0 {
-		return `<p class="empty-state">暂无可显示内容。</p>`
+		return emptyState("这里还没有可显示的内容", "发布一条动态，或者先去发现感兴趣的社群。", "/discover", "发现社群")
 	}
 	return b.String()
 }

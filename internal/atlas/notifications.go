@@ -30,7 +30,8 @@ func (app *App) notificationRoutes(router *chi.Mux) {
 			items = append(items, n)
 		}
 		rows.Close()
-		body := `<h1>站内通知</h1>`
+		body := pageHeading("NOTIFICATIONS", "站内通知", "回复、订阅讨论与处理结论的更新。", `<a class="btn" href="/settings">通知偏好</a>`)
+		shown := 0
 		for _, n := range items {
 			label, target := "事务状态更新", "/my/cases/"+pathID(n.object)
 			if n.kind == "post" {
@@ -50,11 +51,15 @@ func (app *App) notificationRoutes(router *chi.Mux) {
 				}
 				label, target = "你参与的讨论有新回复", "/p/"+pathID(n.post)
 			}
-			body += `<article><a href="` + target + `">` + label + `</a>`
+			shown++
+			body += `<article class="notification-card"><span class="avatar avatar-small">↳</span><a href="` + target + `">` + label + `</a>`
 			if !n.read.Valid {
 				body += formStart(r, "/api/v1/notifications/"+pathID(n.id)+"/read") + `<button>标记已读</button></form>`
 			}
 			body += formStart(r, "/api/v1/notifications/"+pathID(n.id)+"/delete") + `<button>删除通知</button></form></article>`
+		}
+		if shown == 0 {
+			body += emptyState("暂时没有新通知", "参与讨论，或订阅感兴趣的社群。新的更新会出现在这里。", "/discover", "发现社群")
 		}
 		app.renderPage(w, r, "通知", "notifications", body)
 	})
@@ -139,14 +144,3 @@ func (app *App) processJobs() error {
 	}
 	return err
 }
-
-const coreJS = `'use strict';
-document.addEventListener('DOMContentLoaded',()=>{
- const editor=document.querySelector('form input[name="draft_id"]')?.form;
- const status=document.querySelector('[data-draft-status]');let busy=false,dirty=false;
- if(editor){editor.addEventListener('input',()=>dirty=true);const id=editor.elements.draft_id.value;
-  const save=async()=>{if(busy||!id||!dirty)return;busy=true;try{const res=await fetch('/api/v1/drafts/'+encodeURIComponent(id),{method:'POST',body:new URLSearchParams(new FormData(editor)),headers:{Accept:'application/json'}});const data=await res.json();if(!res.ok)throw new Error(res.status===409?'草稿已在另一处更新，请先重新打开草稿。':'保存失败，请保留文字并重试。');editor.elements.version.value=data.version;dirty=false;if(status)status.textContent='私人草稿已保存';}catch(e){if(status)status.textContent=e.message;}finally{busy=false}};
-  document.querySelector('[data-save-draft]')?.addEventListener('click',()=>{dirty=true;save()});if(id)setInterval(save,15000);
-  document.querySelector('[data-preview]')?.addEventListener('click',async()=>{const res=await fetch('/api/v1/preview',{method:'POST',body:new URLSearchParams(new FormData(editor))});if(res.ok)document.querySelector('[data-preview-output]').innerHTML=await res.text();else if(status)status.textContent='预览失败，请重试。'});
- }
-});`

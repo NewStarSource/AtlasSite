@@ -93,9 +93,7 @@ func (app *App) communityRoutes(router *chi.Mux) {
 		}
 
 		var contentBuf strings.Builder
-		contentBuf.WriteString(`<div class="discover-container">
-			<h1 class="page-title">发现社群</h1>
-			<p class="page-subtitle">探索感兴趣的领域，找到志同道合的社群</p>`)
+		contentBuf.WriteString(pageHeading("EXPLORE COMMUNITIES", "发现社群", "从领域走向方向，找到可以认真交流的地方。", `<a class="btn" href="/search?type=community">搜索社群</a>`) + `<div class="discover-container">`)
 
 		for _, domain := range domains {
 			contentBuf.WriteString(`<div id="domain-` + esc(domain.ID) + `" class="domain-section">
@@ -151,7 +149,7 @@ func (app *App) communityRoutes(router *chi.Mux) {
 			fail(w, err)
 			return
 		}
-		contentBuf.WriteString(`<section id="uncategorized"><h2>待分类社群</h2>`)
+		contentBuf.WriteString(`<section class="panel" id="uncategorized"><h2>待分类社群</h2>`)
 		count := 0
 		for rows.Next() {
 			var slug, name string

@@ -51,11 +51,14 @@ func TestCoreCommunityTopicAssociationAndCollectionVisibility(t *testing.T) {
 	}
 	page := viewer.call("GET", "/c/test-community", nil, true)
 	mustStatus(t, page, 200)
-	for _, value := range []string{"announcement", "guide", "discussion", "引用的讨论"} {
-		if !strings.Contains(page.Body.String(), value) {
-			t.Fatal("missing collection or reference", value)
+	for _, route := range []struct{ path, text string }{{"/announcements", "announcement"}, {"/guide", "guide"}, {"/collections", "引用的讨论"}} {
+		result := viewer.call("GET", "/c/test-community"+route.path, nil, true)
+		mustStatus(t, result, 200)
+		if !strings.Contains(result.Body.String(), route.text) {
+			t.Fatal("missing collection or reference", route.path)
 		}
 	}
+
 	if strings.Contains(page.Body.String(), `href="javascript:`) {
 		t.Fatal("unsafe source URL rendered")
 	}
@@ -65,12 +68,12 @@ func TestCoreCommunityTopicAssociationAndCollectionVisibility(t *testing.T) {
 		t.Fatal("topic association absent")
 	}
 	mustStatus(t, viewer.call("POST", "/api/v1/blocks/"+author.owner, url.Values{"blocked": {"true"}}, true), 303)
-	if strings.Contains(viewer.call("GET", "/c/test-community", nil, true).Body.String(), "引用的讨论") {
+	if strings.Contains(viewer.call("GET", "/c/test-community/collections", nil, true).Body.String(), "引用的讨论") {
 		t.Fatal("blocked author leaked through collection")
 	}
 	form = url.Values{"version": {"2"}, "community": {""}}
 	mustStatus(t, author.call("POST", "/api/v1/p/"+id+"/association", form, true), 303)
-	if strings.Contains(author.call("GET", "/c/test-community", nil, true).Body.String(), "引用的讨论") {
+	if strings.Contains(author.call("GET", "/c/test-community/collections", nil, true).Body.String(), "引用的讨论") {
 		t.Fatal("detached discussion leaked through reference")
 	}
 	if _, err := app.db.Exec("INSERT INTO community_paths VALUES('old',?)", c); err != nil {

@@ -300,6 +300,7 @@ func (app *App) Handler() http.Handler {
 			respond(writer, 503, map[string]string{"code": "AUTH_NOT_CONFIGURED", "message": "星图单点登录尚未接入，请稍后再试"})
 		})
 	}
+	app.uiRoutes(router)
 	app.identityRoutes(router)
 	app.communityRoutes(router)
 	app.postsRoutes(router)
@@ -324,7 +325,7 @@ func (app *App) Handler() http.Handler {
 		writer.Header().Set("Referrer-Policy", "strict-origin")
 		writer.Header().Set("X-Content-Type-Options", "nosniff")
 		writer.Header().Set("X-Frame-Options", "DENY")
-		writer.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+		writer.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
 		if request.Host != app.config.Address {
 			respond(writer, 400, map[string]string{"code": "HOST_INVALID"})
 			return
@@ -334,7 +335,7 @@ func (app *App) Handler() http.Handler {
 			limit = (8 * 1024 * 1024) + (128 * 1024)
 		}
 		request.Body = http.MaxBytesReader(writer, request.Body, limit)
-		app.maintenanceGate(protected).ServeHTTP(writer, request)
+		app.browserErrors(app.maintenanceGate(protected)).ServeHTTP(writer, request)
 	})
 }
 func Server(config Config, handler http.Handler) *http.Server {

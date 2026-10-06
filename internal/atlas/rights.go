@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,9 +21,7 @@ func (app *App) rightsRoutes(router *chi.Mux) {
 	router.Get("/settings", app.settingsPage)
 	router.Post("/api/v1/settings", app.updateSettings)
 	router.Post("/api/v1/blocks/{id}", app.setBlock)
-	router.Get("/help", func(w http.ResponseWriter, r *http.Request) {
-		app.renderPage(w, r, "使用与权利帮助", "help", `<h1>星图本地测试帮助</h1><p>从新星账户登录，可独立发动态或从社群页发帖。资料在新星账户编辑。</p><p>图片发布前仅本人可见；删除后原帖、回复、图片、搜索和通知同时停止展示。受限旧正文最多保留 30 天，争议冻结部分按案件期限处理。</p><p>普通加密备份最长 12 个月，恢复先重放删除清单；草稿及举报说明不进入普通备份。</p><p><a href="/settings">隐私、屏蔽、导出与注销</a> · <a href="/help/report">举报及申诉</a> · <a href="/help/emergency">紧急请求</a> · <a href="/status">运行状态</a></p><p>当前本地合成测试由项目负责人处理，尚未接入真实用户或组成独立复核组。涉及处理者自身的申诉保持待独立复核，不由被投诉者终审。</p>`)
-	})
+	router.Get("/help", app.helpPage)
 	router.Get("/help/report", func(w http.ResponseWriter, r *http.Request) { app.caseForm(w, r, false) })
 	router.Get("/help/emergency", func(w http.ResponseWriter, r *http.Request) { app.caseForm(w, r, true) })
 	router.Post("/api/v1/cases", app.submitCase)
@@ -32,7 +31,7 @@ func (app *App) rightsRoutes(router *chi.Mux) {
 	router.Post("/api/v1/me/export", app.exportOwn)
 	router.Post("/api/v1/me/deactivate", app.deactivateAtlas)
 	router.Get("/recover", func(w http.ResponseWriter, r *http.Request) {
-		app.renderPage(w, r, "恢复账户", "settings", `<h1>恢复账户</h1><p>注销后 30 天内，请在新星账户使用用户名和密码重新验证并恢复；之后重新登录星图。旧会话不会复活。</p><p><a href="`+esc(app.config.AccountOrigin)+`/recover">前往新星账户恢复</a></p>`)
+		app.renderPage(w, r, "恢复账户", "settings", pageHeading("ACCOUNT RECOVERY", "恢复账户", "注销后 30 天内，可验证原有账户身份并申请恢复。", "")+`<section class="panel"><h2>前往新星账户验证</h2><p>使用原有用户名与密码完成恢复，然后重新登录星图。旧会话不会复活，已经执行的内容删除也不会自动撤销。</p><a class="btn btn-primary" href="`+esc(app.config.AccountOrigin)+`/recover">前往新星账户恢复 ↗</a><a class="btn" href="/login">重新登录星图</a></section>`)
 	})
 }
 func (app *App) settingsPage(w http.ResponseWriter, r *http.Request) {
@@ -41,8 +40,7 @@ func (app *App) settingsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var hidden, reply, retain int
-	err := app.db.QueryRow("SELECT hide_relations,reply_notifications,retain_content FROM user_settings WHERE user_id=?", i.ID).Scan(&hidden, &reply, &retain)
-	if err != nil {
+	if err := app.db.QueryRow("SELECT hide_relations,reply_notifications,retain_content FROM user_settings WHERE user_id=?", i.ID).Scan(&hidden, &reply, &retain); err != nil {
 		fail(w, err)
 		return
 	}
@@ -52,43 +50,59 @@ func (app *App) settingsPage(w http.ResponseWriter, r *http.Request) {
 		}
 		return ""
 	}
-	body := `<h1>隐私与账户权利</h1>` + formStart(r, "/api/v1/settings") + `<label><input type="checkbox" name="hide_relations" value="1"` + checked(hidden) + `>隐藏全部社群关系</label><label><input type="checkbox" name="reply_notifications" value="1"` + checked(reply) + `>接收普通回复通知</label><p>安全和案件结论通知不能关闭。当前没有用户间关注关系。</p><button>保存设置</button></form><p><a href="` + esc(app.config.AccountOrigin) + `/profile">编辑账户个人资料</a> · <a href="/security">重新确认身份</a> · <a href="/my/export">导出本人数据</a> · <a href="/my/cases">我的举报与申诉</a> · <a href="/my/bookmarks">我的收藏</a> · <a href="/my/drafts">我的草稿</a></p><p><a href="/my/subscriptions">我的社群与主题订阅</a></p><h2>已屏蔽用户</h2>`
-	rows, err := app.db.Query("SELECT b.target_id,u.alias FROM blocks b JOIN users u ON u.id=b.target_id WHERE b.owner_id=? ORDER BY b.created_at DESC", i.ID)
-	if err != nil {
-		fail(w, err)
+	title, description := "隐私与通知偏好", "决定哪些关系公开，以及哪些讨论会通知你。"
+	if r.URL.Path == "/settings/blocks" {
+		title, description = "屏蔽管理", "屏蔽后，双方不能通过星图继续互动。"
+	}
+	if r.URL.Path == "/settings/account" {
+		title, description = "注销与恢复", "先了解内容保留方式，再决定如何处理账户。"
+	}
+	body := pageHeading("PREFERENCES", title, description, "") + settingsNav(r.URL.Path)
+	if r.URL.Path == "/settings" {
+		body += `<section class="panel"><h2>关系与通知</h2>` + formStart(r, "/api/v1/settings") + `<label class="check-row"><input type="checkbox" name="hide_relations" value="1"` + checked(hidden) + `><span>隐藏全部社群关系<small>他人无法查看你的社群和主题订阅列表。</small></span></label><label class="check-row"><input type="checkbox" name="reply_notifications" value="1"` + checked(reply) + `><span>接收普通回复通知<small>你参与的讨论有新回复时，在站内通知你。</small></span></label><p class="field-help">安全与案件结论通知仍会保留。社群的新讨论通知可在订阅页分别调整。</p><button class="btn btn-primary">保存设置</button></form></section><section class="panel"><h2>公开个人资料</h2><p>显示名称、简介和个人网站由新星账户管理，星图仅展示公开字段。</p><a class="btn" href="` + esc(app.config.AccountOrigin) + `/profile">编辑个人资料 ↗</a></section>`
+		app.renderPage(w, r, title, "settings", body)
 		return
 	}
-	for rows.Next() {
-		var id, alias string
-		rows.Scan(&id, &alias)
-		body += `<p>` + esc(alias) + `</p>` + formStart(r, "/api/v1/blocks/"+pathID(id)) + field("blocked", "false") + `<button>解除屏蔽</button></form>`
+	if r.URL.Path == "/settings/blocks" {
+		rows, err := app.db.Query("SELECT b.target_id,u.alias FROM blocks b JOIN users u ON u.id=b.target_id WHERE b.owner_id=? ORDER BY b.created_at DESC", i.ID)
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		count := 0
+		for rows.Next() {
+			var id, alias string
+			if err = rows.Scan(&id, &alias); err != nil {
+				rows.Close()
+				fail(w, err)
+				return
+			}
+			count++
+			body += `<section class="panel action-row"><span class="avatar avatar-small">○</span><strong>` + esc(alias) + `</strong>` + formStart(r, "/api/v1/blocks/"+pathID(id)) + field("blocked", "false") + `<button>解除屏蔽</button></form></section>`
+		}
+		rows.Close()
+		if count == 0 {
+			body += emptyState("暂无已屏蔽用户", "需要屏蔽某位用户时，可从他的公开主页操作。", "/my", "返回我的空间")
+		}
+		app.renderPage(w, r, title, "settings", body)
+		return
 	}
-	rows.Close()
 	var choices strings.Builder
-	ownRows, e := app.db.Query("SELECT id,title FROM posts WHERE author_id=? AND status='published' ORDER BY created_at DESC LIMIT 100", i.ID)
-	if e != nil {
-		fail(w, e)
-		return
+	for _, query := range []string{"SELECT id,title FROM posts WHERE author_id=? AND status='published' ORDER BY created_at DESC LIMIT 100", "SELECT id,content FROM replies WHERE author_id=? AND status='published' ORDER BY created_at DESC LIMIT 100"} {
+		rows, err := app.db.Query(query, i.ID)
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		for rows.Next() {
+			var id, text string
+			rows.Scan(&id, &text)
+			choices.WriteString(`<label><input type="checkbox" name="retain_ids" value="` + esc(id) + `">` + esc(excerpt(text, 60)) + `</label>`)
+		}
+		rows.Close()
 	}
-	for ownRows.Next() {
-		var id, title string
-		ownRows.Scan(&id, &title)
-		choices.WriteString(`<label><input type="checkbox" name="retain_ids" value="` + esc(id) + `">保留动态 ` + esc(title) + `</label>`)
-	}
-	ownRows.Close()
-	replyRows, e := app.db.Query("SELECT id,content FROM replies WHERE author_id=? AND status='published' ORDER BY created_at DESC LIMIT 100", i.ID)
-	if e != nil {
-		fail(w, e)
-		return
-	}
-	for replyRows.Next() {
-		var id, text string
-		replyRows.Scan(&id, &text)
-		choices.WriteString(`<label><input type="checkbox" name="retain_ids" value="` + esc(id) + `">保留回复 ` + esc(excerpt(text, 40)) + `</label>`)
-	}
-	replyRows.Close()
-	body += `<h2>注销</h2><p>需要先重新确认身份。选择删除内容时立即停止全部下游展示；保留内容仍显示化名及已注销标记。恢复期 30 天，恢复不自动撤销已执行的内容删除。</p>` + formStart(r, "/api/v1/me/deactivate") + `<label><input type="checkbox" name="retain_content" value="1"` + checked(retain) + `>保留全部已公开内容</label>` + choices.String() + `<p>也可仅勾选上面希望保留的内容；原帖已删除的回复不能独立公开。列表为最近 100 条动态和 100 条回复。</p><label><input type="checkbox" name="confirm" value="deactivate" required>确认注销</label><button>注销并撤销全部会话</button></form>`
-	app.renderPage(w, r, "隐私与权利", "settings", body)
+	body += `<section class="panel"><h2>先保存自己的数据</h2><p>导出只包含你的资料、内容与偏好；下载前需要重新确认身份。</p><a class="btn" href="/my/export">前往数据导出</a></section><section class="panel danger-panel"><h2>注销星图与新星账户</h2><p>注销立即撤销会话并停止新投稿。30 天内可通过新星账户恢复，恢复不会自动撤销已经执行的内容删除。</p><p><a href="/security">先重新确认身份 →</a></p>` + formStart(r, "/api/v1/me/deactivate") + `<label class="check-row"><input type="checkbox" name="retain_content" value="1"` + checked(retain) + `><span>保留全部已公开内容<small>保留内容继续显示化名和“已注销”标记。</small></span></label><details><summary>仅保留部分内容</summary><p class="field-help">可选择最近 100 条动态和 100 条回复。原帖已删除时，回复不能独立公开。</p><div class="retain-list">` + choices.String() + `</div></details><label class="check-row"><input type="checkbox" name="confirm" value="deactivate" required><span>我已了解注销及内容处理方式，确认注销</span></label><button class="btn-danger">注销并撤销全部会话</button></form></section><section class="panel"><h2>恢复已注销账户</h2><p>在 30 天恢复期内，前往新星账户验证原有用户名与密码。恢复后需重新登录星图。</p><a class="btn" href="/recover">查看恢复步骤</a></section>`
+	app.renderPage(w, r, title, "settings", body)
 }
 func (app *App) updateSettings(w http.ResponseWriter, r *http.Request) {
 	i := app.requireIdentity(w, r, false)
@@ -148,7 +162,7 @@ func (app *App) setBlock(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	http.Redirect(w, r, "/settings", 303)
+	http.Redirect(w, r, "/settings/blocks", 303)
 }
 func (app *App) caseForm(w http.ResponseWriter, r *http.Request, emergency bool) {
 	kind, title := "report", "举报与申诉"
@@ -159,7 +173,13 @@ func (app *App) caseForm(w http.ResponseWriter, r *http.Request, emergency bool)
 			return
 		}
 	}
-	body := `<h1>` + title + `</h1><p>仅提交处理所必需的信息，不上传第三人的私密材料。说明独立加密保存，结案后 30 天清理，不送外部 AI、不进入普通长期备份。</p><p>紧急请求 24 小时内响应，普通举报和申诉 168 小时内初步处理。当前仅本地测试，未提供全天候真实值守。</p>` + formStart(r, "/api/v1/cases") + field("request_id", randomID()) + field("kind", kind) + `<label>内容 ID<input name="object_id" value="` + esc(r.URL.Query().Get("object_id")) + `"></label><label>申诉原案件 ID（普通举报留空）<input name="parent_id"></label><label>必要说明<textarea name="detail" maxlength="4000" required></textarea></label><label><input type="checkbox" name="conflict" value="1">涉及处理人员或利益冲突</label><button>提交请求</button></form>`
+	body := pageHeading("FEEDBACK", title, "只提交处理所必需的信息，避免带入他人的私密材料。", `<a class="btn" href="/my/cases">我的请求</a>`) + `<section class="panel">` + formStart(r, "/api/v1/cases") + field("request_id", randomID()) + field("kind", kind) + field("object_id", r.URL.Query().Get("object_id"))
+	if r.URL.Query().Get("object_id") == "" {
+		body += `<label for="report-url">内容链接（可选）</label><input id="report-url" name="object_url" placeholder="粘贴星图内的动态或回复链接">`
+	} else {
+		body += `<div class="notice">已关联你刚才选择的内容，不需要填写编号。</div>`
+	}
+	body += `<label for="report-detail">必要说明</label><textarea id="report-detail" name="detail" maxlength="4000" placeholder="描述发生了什么，以及希望得到的处理。" required></textarea><label class="check-row"><input type="checkbox" name="conflict" value="1"><span>涉及处理人员或利益冲突</span></label><p class="field-help">说明独立加密保存，结案后 30 天清理，不送外部 AI，也不进入普通长期备份。</p><button class="btn btn-primary">提交请求</button></form></section><div class="notice">紧急请求 24 小时内响应，普通举报和申诉 168 小时内初步处理。当前仅本地测试，未提供全天候真实值守。</div>`
 	app.renderPage(w, r, title, "help", body)
 }
 func (app *App) submitCase(w http.ResponseWriter, r *http.Request) {
@@ -168,6 +188,22 @@ func (app *App) submitCase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	kind, key, object, parent, detail := r.FormValue("kind"), r.FormValue("request_id"), r.FormValue("object_id"), r.FormValue("parent_id"), strings.TrimSpace(r.FormValue("detail"))
+	if object == "" && r.FormValue("object_url") != "" {
+		target, err := url.Parse(strings.TrimSpace(r.FormValue("object_url")))
+		if err != nil || ((target.IsAbs() || target.Host != "") && target.Scheme+"://"+target.Host != app.config.Origin) || target.User != nil {
+			fail(w, errInput)
+			return
+		}
+		parts := strings.Split(strings.Trim(target.Path, "/"), "/")
+		if len(parts) != 2 || parts[0] != "p" || !uuidRequest(parts[1]) {
+			fail(w, errInput)
+			return
+		}
+		object = parts[1]
+		if strings.HasPrefix(target.Fragment, "reply-") {
+			object = strings.TrimPrefix(target.Fragment, "reply-")
+		}
+	}
 	i, _, _ := app.currentIdentity(r)
 	owner := ""
 	if i != nil {
@@ -205,6 +241,10 @@ func (app *App) submitCase(w http.ResponseWriter, r *http.Request) {
 	var existing string
 	err := app.db.QueryRow("SELECT id FROM cases WHERE user_id IS ? AND request_id=?", nullable(owner), key).Scan(&existing)
 	if err == nil {
+		if strings.Contains(r.Header.Get("Accept"), "text/html") && owner != "" {
+			http.Redirect(w, r, "/my/cases/"+pathID(existing)+"?received=1", 303)
+			return
+		}
 		respond(w, 202, map[string]string{"id": existing, "code": "REQUEST_ACCEPTED"})
 		return
 	}
@@ -254,7 +294,11 @@ func (app *App) submitCase(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	app.renderPage(w, r, "请求已受理", "help", `<h1>请求已受理</h1><p>受理编号 `+esc(id)+`。处理进度可在我的举报与申诉中查看。未登录紧急请求请保存编号并交给本地项目负责人。</p><p><a href="/my/cases">我的请求</a></p>`)
+	if strings.Contains(r.Header.Get("Accept"), "text/html") && owner != "" {
+		http.Redirect(w, r, "/my/cases/"+pathID(id)+"?received=1", 303)
+		return
+	}
+	app.renderPage(w, r, "请求已受理", "help", pageHeading("REQUEST RECEIVED", "请求已受理", "请保存受理编号，便于后续查询。", "")+`<section class="panel"><span class="badge badge-soft">已受理</span><p class="case-reference">受理编号 `+esc(id)+`</p><p>处理进度可在我的举报与申诉中查看。未登录紧急请求请保存编号并交给本地项目负责人。</p><a class="btn" href="/my/cases">我的请求</a></section>`)
 }
 func (app *App) casesPage(w http.ResponseWriter, r *http.Request) {
 	i := app.requireIdentity(w, r, false)
@@ -266,13 +310,18 @@ func (app *App) casesPage(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	body := `<h1>我的举报与申诉</h1>`
+	body := pageHeading("YOUR REQUESTS", "我的举报与申诉", "查看受理进度、处理结论，或继续提交申诉。", `<a class="btn" href="/help/report">提交新请求</a>`)
+	count := 0
 	for rows.Next() {
 		var id, kind, status string
 		rows.Scan(&id, &kind, &status)
-		body += `<p><a href="/my/cases/` + pathID(id) + `">` + esc(kind) + ` · ` + esc(status) + `</a></p>`
+		count++
+		body += `<article class="case-card"><div class="action-row"><a href="/my/cases/` + pathID(id) + `">` + esc(caseLabel(kind)) + `</a><span class="badge">` + esc(caseLabel(status)) + `</span></div><p class="case-reference">受理编号 ` + esc(id) + `</p></article>`
 	}
 	rows.Close()
+	if count == 0 {
+		body += emptyState("暂无已提交的请求", "遇到内容或隐私问题，可从详情页举报，或在帮助页提交反馈。", "/help", "查看帮助")
+	}
 	app.renderPage(w, r, "我的请求", "help", body)
 }
 func (app *App) casePage(w http.ResponseWriter, r *http.Request) {
@@ -288,14 +337,17 @@ func (app *App) casePage(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	body := `<h1>请求状态</h1><p>` + esc(kind) + ` · ` + esc(status) + ` · ` + esc(decision) + `</p><p>初步处理期限 ` + time.Unix(due, 0).In(time.FixedZone("Asia/Shanghai", 8*3600)).Format("2006-01-02 15:04") + `</p>` + formStart(r, "/api/v1/cases") + field("request_id", randomID()) + field("kind", "report") + field("parent_id", id) + field("object_id", object) + `<label>申诉说明<textarea name="detail" maxlength="4000" required></textarea></label><button>提交申诉</button></form>`
+	body := pageHeading("REQUEST STATUS", caseLabel(kind), "案件材料仅由受限处理流程读取。", `<a class="btn" href="/my/cases">返回我的请求</a>`) + `<section class="panel"><div class="action-row"><span class="badge badge-soft">` + esc(caseLabel(status)) + `</span><span>` + esc(caseLabel(decision)) + `</span></div><p>初步处理期限 ` + time.Unix(due, 0).In(time.FixedZone("Asia/Shanghai", 8*3600)).Format("2006-01-02 15:04") + `</p>` + formStart(r, "/api/v1/cases") + field("request_id", randomID()) + field("kind", "report") + field("parent_id", id) + field("object_id", object) + `<label>申诉说明<textarea name="detail" maxlength="4000" required></textarea></label><button>提交申诉</button></form></section>`
+	if r.URL.Query().Get("received") == "1" {
+		body = `<div class="notice" role="status">请求已受理 · 受理编号 ` + esc(id) + `</div>` + body
+	}
 	app.renderPage(w, r, "请求状态", "help", body)
 }
 func (app *App) exportPage(w http.ResponseWriter, r *http.Request) {
 	if app.requireIdentity(w, r, false) == nil {
 		return
 	}
-	app.renderPage(w, r, "本人导出", "settings", `<h1>导出本人数据</h1><p>导出仅含本人内容、关系、设置、通知与案件最小状态；排除举报证据、他人私密资料和账户内部映射。请先重新确认身份。</p>`+formStart(r, "/api/v1/me/export")+`<button>生成并下载本人 ZIP</button></form>`)
+	app.renderPage(w, r, "本人导出", "settings", pageHeading("YOUR DATA", "导出本人数据", "把自己的内容与偏好带走。下载文件请妥善保存。", "")+settingsNav("/my/export")+`<section class="panel"><h2>导出内容</h2><p>包含本人内容、草稿、可导出的自有图片、关系、设置、通知与案件最小状态。</p><p>排除举报证据、他人的私密资料和账户内部映射。</p><div class="notice">下载前，请先在登录与安全页面重新确认身份。</div><a class="btn" href="/security">重新确认身份</a>`+formStart(r, "/api/v1/me/export")+`<button class="btn btn-primary">生成并下载本人 ZIP</button></form></section>`)
 }
 func (app *App) exportOwn(w http.ResponseWriter, r *http.Request) {
 	i := app.requireIdentity(w, r, true)

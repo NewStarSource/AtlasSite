@@ -39,70 +39,107 @@ func (app *App) communityPage(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	body := breadcrumb + `<h1>` + esc(c.Name) + `</h1><p>` + esc(c.Description) + `</p><p>状态 ` + esc(c.Status) + ` · 接触方式 ` + esc(c.ContactMethod) + `</p><p>许可 ` + esc(c.SourceLicense) + `</p>`
+	view := strings.TrimPrefix(r.URL.Path, "/c/"+c.Slug)
+	view = strings.Trim(view, "/")
+	base := "/c/" + pathID(c.Slug)
+	verified := "来源待核实"
 	if c.Verified {
-		body += `<p>来源已核验</p>`
-	} else {
-		body += `<p>来源待核实</p>`
+		verified = "来源已核验"
 	}
-	if safeSource(c.SourceURL) {
-		body += `<p>来源 <a rel="noopener noreferrer" href="` + esc(c.SourceURL) + `">` + esc(c.SourceURL) + `</a> · 许可 ` + esc(c.SourceLicense) + `</p>`
+	body := breadcrumb + `<header class="community-header"><span class="badge badge-soft">社群</span><h1>` + esc(c.Name) + `</h1><p class="community-description">` + esc(c.Description) + `</p><div class="action-row"><span class="badge">` + verified + `</span><span class="badge">` + map[bool]string{true: "待分类", false: "开放讨论"}[c.Status == "uncategorized"] + `</span><a class="btn btn-primary" href="` + base + `/new">＋ 发布讨论</a></div></header><nav class="tabs" aria-label="社群内容">`
+	for _, tab := range [][2]string{{"", "讨论"}, {"announcements", "公告"}, {"guide", "新人指南"}, {"collections", "讨论合集"}, {"about", "社群介绍"}} {
+		class := ""
+		if tab[0] == view {
+			class = ` class="active" aria-current="page"`
+		}
+		body += `<a href="` + base + map[bool]string{true: "", false: "/" + tab[0]}[tab[0] == ""] + `"` + class + `>` + tab[1] + `</a>`
 	}
-	body += app.subscriptionForm(r, "community", c.ID)
+	body += `</nav><div class="page-columns"><section>`
 	topics, err := app.listTopics(c.ID)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	body += `<h2>主题</h2>`
-	for _, t := range topics {
-		body += `<p><a href="/c/` + pathID(c.Slug) + `/t/` + pathID(t.Slug) + `">` + esc(t.Name) + `</a> · ` + esc(t.Description) + `</p>`
-	}
-	collections, err := app.listCollections(c.ID)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	for _, collection := range collections {
-		body += `<section><h2>` + esc(collection.Title) + `</h2>`
-		if collection.Type == "discussion" {
-			rows, e := app.db.Query("SELECT p.id FROM collection_refs cr JOIN posts p ON p.id=cr.post_id WHERE cr.collection_id=? AND p.community_id=? AND "+visiblePostSQL+" ORDER BY p.created_at,p.id", collection.ID, c.ID)
-			if e != nil {
-				fail(w, e)
-				return
+	if view == "" {
+		if len(topics) > 0 {
+			body += `<div class="topic-list">`
+			for _, t := range topics {
+				body += `<a class="topic-tag" href="` + base + `/t/` + pathID(t.Slug) + `">` + esc(t.Name) + `</a>`
 			}
-			var ids []string
-			for rows.Next() {
-				var id string
-				rows.Scan(&id)
-				ids = append(ids, id)
-			}
-			rows.Close()
-			for _, id := range ids {
-				p, e := app.getPost(id)
-				if e == nil && app.postVisible(id, viewer) {
-					body += `<p><a href="/p/` + pathID(id) + `">` + esc(p.Title) + `</a></p>`
-				}
-			}
-			if len(ids) == 0 {
-				body += `<p>暂无可展示的讨论引用。</p>`
-			}
-		} else {
-			body += `<div>` + renderMarkdown(collection.Content) + `</div>`
+			body += `</div>`
+		}
+		posts, e := app.listPosts(c.ID, 50)
+		if e != nil {
+			fail(w, e)
+			return
+		}
+		body += `<div class="section-heading"><h2>最近讨论</h2><span class="muted">按发布时间</span></div><div class="feed-list">` + app.postCards(posts, viewer) + `</div>`
+	} else if view == "about" {
+		body += `<section class="panel prose"><h2>关于这个社群</h2><p>` + esc(c.Description) + `</p><h3>接触方式</h3><p>` + esc(c.ContactMethod) + `</p><h3>来源与许可</h3><p>` + verified + ` · ` + esc(c.SourceLicense) + `</p>`
+		if safeSource(c.SourceURL) {
+			body += `<p><a rel="noopener noreferrer" href="` + esc(c.SourceURL) + `">查看来源 ↗</a></p>`
 		}
 		body += `</section>`
+	} else {
+		collections, e := app.listCollections(c.ID)
+		if e != nil {
+			fail(w, e)
+			return
+		}
+		wanted := map[string]string{"announcements": "announcement", "guide": "guide", "collections": "discussion"}[view]
+		shown := 0
+		for _, collection := range collections {
+			if collection.Type != wanted {
+				continue
+			}
+			shown++
+			body += `<section class="collection-card"><h2>` + esc(collection.Title) + `</h2>`
+			if collection.Type == "discussion" {
+				rows, e := app.db.Query("SELECT p.id FROM collection_refs cr JOIN posts p ON p.id=cr.post_id WHERE cr.collection_id=? AND p.community_id=? AND "+visiblePostSQL+" ORDER BY p.created_at,p.id", collection.ID, c.ID)
+				if e != nil {
+					fail(w, e)
+					return
+				}
+				var ids []string
+				for rows.Next() {
+					var id string
+					rows.Scan(&id)
+					ids = append(ids, id)
+				}
+				rows.Close()
+				count := 0
+				for _, id := range ids {
+					p, e := app.getPost(id)
+					if e == nil && app.postVisible(id, viewer) {
+						count++
+						body += `<p><a href="/p/` + pathID(id) + `">` + esc(p.Title) + ` →</a></p>`
+					}
+				}
+				if count == 0 {
+					body += `<p class="muted">暂无可展示的讨论引用。</p>`
+				}
+			} else {
+				body += `<div class="prose">` + renderMarkdown(collection.Content) + `</div>`
+			}
+			body += `</section>`
+		}
+		if shown == 0 {
+			body += emptyState("这里还没有公开内容", "有新的公开内容时，会显示在这里。", base, "返回社群讨论")
+		}
 	}
-	posts, err := app.listPosts(c.ID, 50)
-	if err != nil {
-		fail(w, err)
-		return
+	body += `</section><aside class="aside-panel"><section class="panel"><p class="eyebrow">STAY CONNECTED</p><h3>订阅这个社群</h3><p>把感兴趣的讨论留在自己的订阅中。</p>` + app.subscriptionForm(r, "community", c.ID) + `</section><section class="panel"><h3>社群主题</h3><div class="link-list">`
+	for _, t := range topics {
+		body += `<a href="` + base + `/t/` + pathID(t.Slug) + `">` + esc(t.Name) + `</a>`
 	}
-	body += `<h2>最近讨论</h2><p><a href="/c/` + pathID(c.Slug) + `/new">发布讨论</a></p>` + app.postCards(posts, viewer)
+	if len(topics) == 0 {
+		body += `<p>尚无独立主题。</p>`
+	}
+	body += `</div><p><a href="` + base + `/about">了解来源与接触方式 →</a></p></section></aside></div>`
 	app.renderPage(w, r, c.Name, "community", body)
 }
 
 func (app *App) communityBreadcrumb(c *Community) (string, error) {
-	body := `<nav aria-label="分类路径"><a href="/discover">社群目录</a>`
+	body := `<nav class="breadcrumb" aria-label="分类路径"><a href="/discover">社群目录</a>`
 	if c.Status == "uncategorized" || c.SubcategoryID == "" {
 		return body + ` / <a href="/discover#uncategorized">待分类</a> / ` + esc(c.Name) + `</nav>`, nil
 	}
@@ -145,7 +182,7 @@ func (app *App) topicPage(w http.ResponseWriter, r *http.Request) {
 	if i != nil {
 		viewer = i.ID
 	}
-	app.renderPage(w, r, name, "topic", `<nav><a href="/c/`+pathID(c.Slug)+`">`+esc(c.Name)+`</a></nav><h1>`+esc(name)+`</h1><p>`+esc(description)+`</p>`+app.subscriptionForm(r, "topic", id)+app.postCards(selected, viewer))
+	app.renderPage(w, r, name, "topic", `<nav class="breadcrumb"><a href="/c/`+pathID(c.Slug)+`">`+esc(c.Name)+`</a><span>/</span><span>主题讨论</span></nav>`+pageHeading("TOPIC", name, description, "")+`<section class="panel">`+app.subscriptionForm(r, "topic", id)+`</section><div class="feed-list">`+app.postCards(selected, viewer)+`</div>`)
 }
 func (app *App) oldCommunityPath(w http.ResponseWriter, r *http.Request) {
 	var slug string
@@ -157,7 +194,7 @@ func (app *App) oldCommunityPath(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/c/"+pathID(slug), 301)
 }
 func (app *App) associationForm(r *http.Request, p *Post, version int) string {
-	body := `<h2>社群与主题关联</h2>` + formStart(r, "/api/v1/p/"+pathID(p.ID)+"/association") + versionField(version) + `<label>社群路径（留空解除关联）<input name="community" value="` + esc(p.CommunitySlug) + `"></label>`
+	body := `<h2>社群与主题关联</h2>` + formStart(r, "/api/v1/p/"+pathID(p.ID)+"/association") + versionField(version) + `<label for="association-community">关联社群</label>` + app.communitySelect("association-community", p.CommunitySlug)
 	if p.CommunityID != "" {
 		topics, _ := app.listTopics(p.CommunityID)
 		for _, t := range topics {

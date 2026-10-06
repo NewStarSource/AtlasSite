@@ -38,6 +38,32 @@ func renderMarkdown(value string) string {
 	}
 	return buf.String()
 }
+
+func markdownExcerpt(value string, limit int) string {
+	source := []byte(value)
+	doc := markdown.Parser().Parse(gmtext.NewReader(source))
+	var text strings.Builder
+	_ = ast.Walk(doc, func(n ast.Node, enter bool) (ast.WalkStatus, error) {
+		if _, image := n.(*ast.Image); image {
+			return ast.WalkSkipChildren, nil
+		}
+		if enter {
+			switch node := n.(type) {
+			case *ast.Text:
+				text.Write(node.Segment.Value(source))
+				if node.SoftLineBreak() || node.HardLineBreak() {
+					text.WriteByte(' ')
+				}
+			case *ast.String:
+				text.Write(node.Value)
+			}
+		} else if n.Type() == ast.TypeBlock {
+			text.WriteByte(' ')
+		}
+		return ast.WalkContinue, nil
+	})
+	return excerpt(strings.Join(strings.Fields(text.String()), " "), limit)
+}
 func mediaIDs(value string) ([]string, error) {
 	source := []byte(value)
 	doc := markdown.Parser().Parse(gmtext.NewReader(source))
@@ -100,56 +126,144 @@ func (app *App) postPage(w http.ResponseWriter, r *http.Request) {
 	var version int
 	var license string
 	app.db.QueryRow("SELECT version_number,license FROM posts WHERE id=?", id).Scan(&version, &license)
-	content := `<article><div class="post-meta">` + publicAuthor(*p) + ` · ` + formatTime(p.CreatedAt) + `</div><h1>` + esc(p.Title) + `</h1><div class="post-content">` + renderMarkdown(p.Content) + `</div><p>许可 ` + esc(license) + ` · 最后修改 ` + formatTime(p.UpdatedAt) + `</p></article>`
+	breadcrumb := `<nav class="breadcrumb"><a href="/">首页动态</a><span>/</span>`
+	if p.CommunityID != "" {
+		breadcrumb += `<a href="/c/` + pathID(p.CommunitySlug) + `">` + esc(p.CommunityName) + `</a><span>/</span>`
+	}
+	breadcrumb += `<span>讨论详情</span></nav>`
+	content := breadcrumb + `<article class="post-article"><div class="post-meta">` + publicAuthor(*p) + `<span>·</span><time>` + formatTime(p.CreatedAt) + `</time></div><h1 class="post-title">` + esc(p.Title) + `</h1><div class="post-content prose">` + renderMarkdown(p.Content) + `</div><div class="post-license">内容许可 ` + esc(licenseLabel(license)) + ` · 最后修改 ` + formatTime(p.UpdatedAt) + `</div></article>`
 	if i != nil {
 		marked, _ := app.isBookmarked(i.ID, id)
 		label := "收藏"
 		if marked {
 			label = "取消收藏"
 		}
-		content += formStart(r, "/api/v1/p/"+pathID(id)+"/bookmark") + field("bookmarked", fmt.Sprint(!marked)) + `<button class="btn">` + label + `</button></form>`
 		var liked int
 		app.db.QueryRow("SELECT count(*) FROM post_likes WHERE user_id=? AND post_id=?", i.ID, id).Scan(&liked)
-		content += formStart(r, "/api/v1/p/"+pathID(id)+"/like") + field("liked", fmt.Sprint(liked == 0)) + `<button class="btn">` + map[bool]string{true: "取消赞", false: "赞"}[liked > 0] + `</button></form>`
+		content += `<div class="action-row">` + formStart(r, "/api/v1/p/"+pathID(id)+"/bookmark") + field("bookmarked", fmt.Sprint(!marked)) + `<button>` + label + `</button></form>` + formStart(r, "/api/v1/p/"+pathID(id)+"/like") + field("liked", fmt.Sprint(liked == 0)) + `<button>` + map[bool]string{true: "取消赞", false: "赞"}[liked > 0] + `</button></form>`
 		if i.ID == p.AuthorID {
-			content += `<p><a href="/p/` + pathID(id) + `/edit">编辑内容</a></p>` + formStart(r, "/api/v1/p/"+pathID(id)+"/delete") + versionField(version) + `<button>删除内容及下游展示</button></form>` + formStart(r, "/api/v1/p/"+pathID(id)+"/association") + versionField(version) + field("community", "") + `<button>解除社群与主题关联</button></form>`
+			content += `<a class="btn" href="/p/` + pathID(id) + `/edit">编辑动态</a>`
 		}
-		content += app.associationForm(r, p, version)
-		content += `<p><a href="/help/report?object_id=` + pathID(id) + `">举报或紧急求助</a></p>` + formStart(r, "/api/v1/p/"+pathID(id)+"/replies") + field("request_id", randomID()) + `<label>回复<textarea name="content" maxlength="20000" required></textarea></label><label>回复对象 ID（直接回复帖子可留空）<input name="parent_id"></label><button class="btn">发表回复</button></form>`
+		content += `<a class="btn" href="/help/report?object_id=` + pathID(id) + `">举报</a></div>`
+		if i.ID == p.AuthorID {
+			content += `<details class="panel"><summary>管理社群关联与内容</summary>` + app.associationForm(r, p, version) + `<hr>` + formStart(r, "/api/v1/p/"+pathID(id)+"/delete") + versionField(version) + `<p class="field-help">删除后，正文、回复和相关图片停止展示。</p><button class="btn-danger">删除这条动态</button></form></details>`
+		}
 	}
 	replies, err := app.listReplies(id)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	content += `<h2>回复</h2>`
+	content += `<div class="section-heading"><h2>讨论与回复</h2></div><div class="reply-list">`
+	visible := 0
+	depths := map[string]int{}
 	for _, reply := range replies {
 		if !app.replyVisible(reply.ID, viewer) {
 			continue
 		}
-		authorName := reply.AuthorName
-		var authorStatus string
-		app.db.QueryRow("SELECT status FROM users WHERE id=?", reply.AuthorID).Scan(&authorStatus)
-		if authorStatus == "deactivated" || authorStatus == "deleted" {
-			authorName += "（已注销）"
-		}
-		content += `<article class="reply-item"><p>` + esc(authorName) + ` · ` + formatTime(reply.CreatedAt) + ` · 回复 ID ` + esc(reply.ID) + `</p><div>` + renderMarkdown(reply.Content) + `</div>`
+		visible++
+		depth := 0
 		if reply.ParentID.Valid {
-			content += `<p>回复 ` + esc(reply.ParentID.String) + `</p>`
+			depth = min(depths[reply.ParentID.String]+1, 3)
 		}
-		if i != nil && i.ID == reply.AuthorID {
-			content += `<a href="/replies/` + pathID(reply.ID) + `/edit">编辑回复</a>`
+		depths[reply.ID] = depth
+		name := reply.AuthorName
+		var status string
+		app.db.QueryRow("SELECT status FROM users WHERE id=?", reply.AuthorID).Scan(&status)
+		if status == "deactivated" || status == "deleted" {
+			name += "（已注销）"
 		}
-		content += `</article>`
+		content += `<article class="reply-item reply-depth-` + fmt.Sprint(depth) + `" id="reply-` + esc(reply.ID) + `"><div class="reply-header"><strong>` + esc(name) + `</strong><span>·</span><time>` + formatTime(reply.CreatedAt) + `</time></div>`
+		if reply.ParentID.Valid {
+			content += `<a class="reply-parent" href="#reply-` + pathID(reply.ParentID.String) + `">↳ 查看被回复的内容</a>`
+		}
+		content += `<div class="prose">` + renderMarkdown(reply.Content) + `</div><div class="reply-actions">`
+		if i != nil {
+			content += `<a href="/p/` + pathID(id) + `?reply_to=` + pathID(reply.ID) + `#reply-composer" data-reply-id="` + esc(reply.ID) + `" data-reply-name="` + esc(name) + `">回复</a><a href="/help/report?object_id=` + pathID(reply.ID) + `">举报</a>`
+			if i.ID == reply.AuthorID {
+				content += `<a href="/replies/` + pathID(reply.ID) + `/edit">编辑</a>`
+			}
+		}
+		content += `</div></article>`
+	}
+	if visible == 0 {
+		content += emptyState("讨论从你开始", "分享一个想法，或提出一个具体的问题。", "#reply-composer", "写下回复")
+	}
+	content += `</div>`
+	if i != nil {
+		parent := r.URL.Query().Get("reply_to")
+		name := ""
+		if parent != "" {
+			reply, e := app.getReply(parent)
+			if e != nil || reply.PostID != id || !app.replyVisible(parent, viewer) {
+				fail(w, errInput)
+				return
+			}
+			name = reply.AuthorName
+		}
+		target := ` hidden`
+		if parent != "" {
+			target = ""
+		}
+		content += `<section class="panel reply-composer" id="reply-composer"><h2>参与讨论</h2>` + enhancedForm(r, "/api/v1/p/"+pathID(id)+"/replies") + field("request_id", randomID()) + field("parent_id", parent) + `<div class="reply-target" data-reply-target` + target + `><span data-reply-label>回复 ` + esc(name) + `</span><button type="button" data-reply-cancel>取消</button></div><label for="reply-content">你的回复</label><textarea id="reply-content" name="content" maxlength="20000" required placeholder="认真表达，也给对方留一些空间。"></textarea><p class="field-help">支持 Markdown；回复将公开显示。</p><p role="alert" data-form-error hidden></p><button class="btn btn-primary">发表回复</button></form></section>`
+	} else {
+		content += `<section class="panel" id="reply-composer"><p>登录后即可回复、收藏和参与讨论。</p><a class="btn btn-primary" href="/login">登录参与讨论</a></section>`
 	}
 	app.renderPage(w, r, p.Title, "post", content)
 }
-func editorContent(r *http.Request, action, id string, version int, d draftBody) string {
-	draftButton := ""
-	if id != "" {
-		draftButton = `<button formnovalidate formaction="/api/v1/drafts/` + pathID(id) + `">保存私人草稿</button>`
+func enhancedForm(r *http.Request, action string) string {
+	return strings.Replace(formStart(r, action), `<form `, `<form data-content-form `, 1)
+}
+func (app *App) editorContent(r *http.Request, action, id string, version int, d draftBody) string {
+	title, button := "发布动态", "发布动态"
+	if strings.Contains(action, "/edit") {
+		title, button = "编辑动态", "保存修改"
 	}
-	return `<h1>编辑内容</h1><p>可独立发布，也可填写社群路径关联。正文支持 Markdown；每篇最多四张自有图片。</p>` + formStart(r, action) + field("request_id", randomID()) + field("draft_id", id) + versionField(version) + `<label>标题<input name="title" value="` + esc(d.Title) + `" maxlength="200" required></label><label>正文<textarea name="content" maxlength="50000" required>` + esc(d.Content) + `</textarea></label><label>社群路径（留空独立发布）<input name="community" value="` + esc(d.Community) + `"></label><label>许可<select name="license"><option value="` + esc(d.License) + `">` + esc(d.License) + `</option><option value="reserved">保留全部权利</option><option>CC BY 4.0</option><option>CC BY-SA 4.0</option></select></label><p>CC 授权已产生的合法复制权不会因删除撤销；保留全部权利不授权站外转载。</p><button class="btn">保存发布</button>` + draftButton + `<button type="button" data-preview>预览</button><div data-preview-output></div></form>`
+	body := pageHeading("WRITE / SHARE", title, "记录一个想法，或带着问题开始一段讨论。", `<a class="btn" href="/my/drafts">我的草稿</a>`)
+	body += `<div class="editor-layout"><section class="panel editor-panel">` + enhancedForm(r, action) + field("request_id", randomID()) + field("draft_id", id) + versionField(version) + `<label for="post-title">标题</label><input class="editor-title" id="post-title" name="title" value="` + esc(d.Title) + `" maxlength="200" placeholder="给这个想法起个标题" required><div class="editor-tools"><button type="button" data-insert="bold" aria-label="插入粗体">B 粗体</button><button type="button" data-insert="heading">标题</button><button type="button" data-insert="link">链接</button><button type="button" data-preview>预览正文</button><span>Markdown</span></div><label for="post-content">正文</label><textarea class="editor-body" id="post-content" name="content" maxlength="50000" placeholder="写下内容，也可以上传自己的图片……" required>` + esc(d.Content) + `</textarea><div class="prose preview-output" data-preview-output aria-live="polite"></div><label for="post-community">发布到</label>` + app.communitySelect("post-community", d.Community) + `<p class="field-help">选择社群后，动态会出现在对应的讨论列表；也可以独立发布。</p><label for="post-license">内容许可</label>` + licenseSelect("post-license", d.License) + `<p class="field-help">保留全部权利不授权站外转载。CC 授权已产生的合法复制权不会随删除撤销。</p><div class="editor-footer"><p role="alert" data-form-error hidden></p><div class="action-row"><button class="btn btn-primary">` + button + `</button>`
+	if id != "" {
+		body += `<button type="submit" formnovalidate formaction="/api/v1/drafts/` + pathID(id) + `">保存私人草稿</button>`
+	}
+	body += `</div><p class="draft-status" role="status" data-draft-status>`
+	if id != "" {
+		body += `草稿每 15 秒自动保存；也可手动保存。`
+	} else {
+		body += `确认内容后保存修改。`
+	}
+	body += `</p></div></form></section>` + uploadPanel(r) + `</div>`
+	return body
+}
+func (app *App) communitySelect(id, selected string) string {
+	body := `<select id="` + esc(id) + `" name="community"><option value="">独立发布 · 不关联社群</option>`
+	rows, err := app.db.Query("SELECT slug,name FROM communities WHERE status IN ('active','uncategorized') ORDER BY name,id")
+	if err != nil {
+		return body + `</select>`
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var slug, name string
+		rows.Scan(&slug, &name)
+		sel := ""
+		if slug == selected {
+			sel = ` selected`
+		}
+		body += `<option value="` + esc(slug) + `"` + sel + `>` + esc(name) + `</option>`
+	}
+	return body + `</select>`
+}
+func licenseSelect(id, current string) string {
+	body := `<select id="` + esc(id) + `" name="license">`
+	for _, option := range [][2]string{{"reserved", "保留全部权利"}, {"CC BY 4.0", "CC BY 4.0 · 署名"}, {"CC BY-SA 4.0", "CC BY-SA 4.0 · 署名、相同方式共享"}} {
+		selected := ""
+		if option[0] == current {
+			selected = ` selected`
+		}
+		body += `<option value="` + option[0] + `"` + selected + `>` + option[1] + `</option>`
+	}
+	return body + `</select>`
+}
+func uploadPanel(r *http.Request) string {
+	return `<aside class="panel upload-panel"><p class="eyebrow">YOUR IMAGES</p><h2>添加图片</h2><p>上传自己的图片后，会直接插入正文。发布前仅自己可见。</p><form method="post" action="/api/v1/media" enctype="multipart/form-data" data-upload-form>` + stringCSRF(r) + `<label for="post-image">选择图片</label><input id="post-image" type="file" name="image" accept="image/jpeg,image/png" required><label for="image-license">图片许可</label>` + licenseSelect("image-license", "reserved") + `<button>上传并插入正文</button><p data-upload-status role="status"></p><div class="upload-preview" data-upload-preview></div></form><hr><p>JPEG / PNG · 每张不超过 8 MiB<br>最多 4 张 · 1600 万像素</p><p>未发布的上传会在 24 小时后清理。</p></aside>`
 }
 func (app *App) editorPage(w http.ResponseWriter, r *http.Request) {
 	i := app.requireIdentity(w, r, false)
@@ -181,12 +295,12 @@ func (app *App) editorPage(w http.ResponseWriter, r *http.Request) {
 	if version == 0 {
 		id = randomID()
 	}
-	body := editorContent(r, action, id, version, d)
-	if version == 0 {
-		body += `<p role="status" data-draft-status>草稿每 15 秒自动保存；也可手动保存。</p><button type="button" data-save-draft>保存私人草稿</button>`
+	body := app.editorContent(r, action, id, version, d)
+	title := "发布动态"
+	if version > 0 {
+		title = "编辑动态"
 	}
-	body += `<h2>上传自有图片</h2><p>支持 JPEG/PNG，最大 8 MiB、1600 万像素。上传后将返回的 Markdown 插入正文；未发布上传 24 小时后清理。</p><form method="post" action="/api/v1/media" enctype="multipart/form-data">` + stringCSRF(r) + `<input type="file" name="image" accept="image/jpeg,image/png" required><select name="license"><option value="reserved">保留全部权利</option><option>CC BY 4.0</option><option>CC BY-SA 4.0</option></select><button>上传图片</button></form>`
-	app.renderPage(w, r, "编辑内容", "editor", body)
+	app.renderPage(w, r, title, "editor", body)
 }
 func stringCSRF(r *http.Request) string { return string(csrf.TemplateField(r)) }
 func (app *App) communityID(slug string) (string, error) {
@@ -608,7 +722,7 @@ func (app *App) replyEditor(w http.ResponseWriter, r *http.Request) {
 	}
 	var version int
 	app.db.QueryRow("SELECT version_number FROM replies WHERE id=?", id).Scan(&version)
-	app.renderPage(w, r, "编辑回复", "editor", `<h1>编辑回复</h1>`+formStart(r, "/api/v1/replies/"+pathID(id)+"/edit")+versionField(version)+`<textarea name="content" maxlength="20000" required>`+esc(reply.Content)+`</textarea><button>保存</button></form>`+formStart(r, "/api/v1/replies/"+pathID(id)+"/delete")+versionField(version)+`<button>删除回复及下游展示</button></form>`)
+	app.renderPage(w, r, "编辑回复", "editor", pageHeading("EDIT REPLY", "编辑回复", "修改自己的表达，保存后会更新原讨论中的回复。", `<a class="btn" href="/p/`+pathID(reply.PostID)+`#reply-`+pathID(id)+`">返回讨论</a>`)+`<section class="panel">`+formStart(r, "/api/v1/replies/"+pathID(id)+"/edit")+versionField(version)+`<label for="reply-content">回复正文</label><textarea id="reply-content" name="content" maxlength="20000" required>`+esc(reply.Content)+`</textarea><button class="btn-primary">保存回复</button></form></section><details class="panel"><summary>删除这条回复</summary><p>删除后，这条回复及其下级回复停止公开展示。</p>`+formStart(r, "/api/v1/replies/"+pathID(id)+"/delete")+versionField(version)+`<button class="btn-danger">删除回复及下游展示</button></form></details>`)
 }
 func (app *App) editReply(w http.ResponseWriter, r *http.Request) {
 	i := app.contentIdentity(w, r)
@@ -719,9 +833,27 @@ func (app *App) draftsPage(w http.ResponseWriter, r *http.Request) {
 		ids = append(ids, id)
 	}
 	rows.Close()
-	body := `<h1>我的私人草稿</h1><p>最后保存后 30 天清理。草稿不公开，不进入普通长期备份。</p>`
+	body := pageHeading("DRAFTS", "私人草稿", "只有自己可见，最后保存 30 天后清理。", `<a class="btn btn-primary" href="/new">＋ 新建动态</a>`)
 	for _, id := range ids {
-		body += `<p><a href="/drafts/` + pathID(id) + `">打开草稿</a></p>` + formStart(r, "/api/v1/drafts/"+pathID(id)+"/delete") + `<button>删除草稿</button></form>`
+		var object string
+		var updated int64
+		if err := app.db.QueryRow("SELECT object_id,updated_at FROM drafts WHERE id=? AND author_id=?", id, i.ID).Scan(&object, &updated); err != nil {
+			fail(w, err)
+			return
+		}
+		var draft draftBody
+		if err := app.privateGet(object, i.ID, "draft", &draft); err != nil {
+			fail(w, err)
+			return
+		}
+		title := draft.Title
+		if title == "" {
+			title = "未命名草稿"
+		}
+		body += `<article class="panel"><h2><a href="/drafts/` + pathID(id) + `">` + esc(title) + `</a></h2><p>` + esc(excerpt(draft.Content, 100)) + `</p><p class="field-help">最后保存 ` + formatTime(time.Unix(updated, 0)) + `</p><div class="action-row"><a class="btn" href="/drafts/` + pathID(id) + `">继续编辑</a>` + formStart(r, "/api/v1/drafts/"+pathID(id)+"/delete") + `<button class="btn-danger">删除草稿</button></form></div></article>`
+	}
+	if len(ids) == 0 {
+		body += emptyState("还没有私人草稿", "打开编辑器，写下内容后即可保存草稿。", "/new", "开始写作")
 	}
 	app.renderPage(w, r, "私人草稿", "drafts", body)
 }
@@ -742,7 +874,7 @@ func (app *App) draftPage(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	app.renderPage(w, r, "私人草稿", "editor", editorContent(r, "/api/v1/posts", id, v, d)+`<button type="button" data-save-draft>保存私人草稿</button><p data-draft-status role="status"></p>`)
+	app.renderPage(w, r, "私人草稿", "editor", app.editorContent(r, "/api/v1/posts", id, v, d))
 }
 func (app *App) saveDraftHTTP(w http.ResponseWriter, r *http.Request) {
 	i := app.contentIdentity(w, r)

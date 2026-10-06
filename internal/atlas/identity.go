@@ -237,7 +237,7 @@ func (app *App) startFlow(writer http.ResponseWriter, request *http.Request, pur
 		options = append(options, oauth2.SetAuthURLParam("prompt", "login"), oauth2.SetAuthURLParam("max_age", "0"))
 	}
 	if purpose == "reauth" {
-		renderContinue(writer, config.AuthCodeURL(state, options...))
+		app.renderContinue(writer, request, config.AuthCodeURL(state, options...))
 		return
 	}
 	http.Redirect(writer, request, config.AuthCodeURL(state, options...), 303)

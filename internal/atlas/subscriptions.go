@@ -2,8 +2,8 @@ package atlas
 
 import (
 	"database/sql"
-	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -30,13 +30,14 @@ func (app *App) subscriptionForm(r *http.Request, kind, object string) string {
 	if notify > 0 {
 		checked = " checked"
 	}
+	start := strings.Replace(formStart(r, "/api/v1/subscriptions"), `<form `, `<form class="subscription-form" `, 1) + field("kind", kind) + field("object_id", object)
 	label := "订阅"
 	if count > 0 {
-		label = "取消订阅"
+		label = "保存通知偏好"
 	}
-	body := formStart(r, "/api/v1/subscriptions") + field("kind", kind) + field("object_id", object) + field("subscribed", fmt.Sprint(count == 0)) + `<label><input type="checkbox" name="notifications" value="true"` + checked + `>接收新讨论通知</label><button>` + label + `</button></form>`
+	body := start + field("subscribed", "true") + `<label><input type="checkbox" name="notifications" value="true"` + checked + `>接收新讨论通知</label><button>` + label + `</button></form>`
 	if count > 0 {
-		body += formStart(r, "/api/v1/subscriptions") + field("kind", kind) + field("object_id", object) + field("subscribed", "true") + `<label><input type="checkbox" name="notifications" value="true"` + checked + `>接收新讨论通知</label><button>保存通知偏好</button></form>`
+		body += formStart(r, "/api/v1/subscriptions") + field("kind", kind) + field("object_id", object) + field("subscribed", "false") + `<button class="btn-quiet">取消订阅</button></form>`
 	}
 	return body
 }
@@ -118,16 +119,22 @@ func (app *App) subscriptionPage(w http.ResponseWriter, r *http.Request, owner s
 		items = append(items, item)
 	}
 	rows.Close()
-	body := `<h1>` + esc(alias) + `的社群与主题订阅</h1>`
+	body := pageHeading("SUBSCRIPTIONS", alias+"的订阅", "订阅感兴趣的社群与主题，按需要接收新讨论通知。", `<a class="btn" href="/discover">发现更多社群</a>`)
+	count := 0
 	for _, item := range items {
 		name, path, err := app.subscriptionTarget(item.kind, item.object)
 		if err != nil {
 			continue
 		}
-		body += `<p><a href="` + path + `">` + esc(name) + `</a></p>`
+		count++
+		body += `<section class="subscription-item"><h2><a href="` + path + `">` + esc(name) + `</a></h2>`
 		if owner == viewer {
 			body += app.subscriptionForm(r, item.kind, item.object)
 		}
+		body += `</section>`
+	}
+	if count == 0 {
+		body += emptyState("暂无可显示的订阅", "从社群或主题页点击订阅，就能在这里找到它。", "/discover", "发现社群")
 	}
 	if owner == viewer {
 		body += `<p><a href="/settings">在隐私设置中隐藏全部社群关系</a></p>`
