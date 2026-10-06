@@ -45,11 +45,11 @@ INSERT INTO subcategories (id, direction_id, name, description, display_order, c
 
 -- 社群 (Communities)
 INSERT INTO communities (id, slug, name, description, subcategory_id, status, contact_method, source_url, source_license, verified, created_at, updated_at) VALUES
-('react-cn', 'react-cn', 'React 中文社区', '讨论 React 开发技巧、最佳实践和生态工具', 'frontend', 'active', '官方论坛', 'https://react.dev', 'CC BY 4.0', 1, unixepoch(), unixepoch()),
-('vue-cn', 'vue-cn', 'Vue.js 中文社区', 'Vue 3、Composition API、Nuxt 等相关讨论', 'frontend', 'active', '官方论坛', 'https://vuejs.org', 'CC BY 4.0', 1, unixepoch(), unixepoch()),
-('golang', 'golang', 'Go 语言社区', 'Go 开发、并发编程、微服务架构', 'backend', 'active', '官方论坛', 'https://go.dev', 'CC BY 4.0', 1, unixepoch(), unixepoch()),
-('pytorch', 'pytorch', 'PyTorch 中文社区', '深度学习、神经网络、模型优化', 'ml', 'active', 'Discord', 'https://pytorch.org', 'CC BY 4.0', 1, unixepoch(), unixepoch()),
-('figma-cn', 'figma-cn', 'Figma 设计师社区', 'UI 设计、原型、组件系统分享', 'ui', 'active', 'Slack', 'https://figma.com', 'CC BY 4.0', 1, unixepoch(), unixepoch()),
+('react-cn', 'react-cn', 'React 中文社区', '讨论 React 开发技巧、最佳实践和生态工具', 'frontend', 'active', '本地合成示例', 'https://react.dev', '合成示例，未获得真实社群授权', 0, unixepoch(), unixepoch()),
+('vue-cn', 'vue-cn', 'Vue.js 中文社区', 'Vue 3、Composition API、Nuxt 等相关讨论', 'frontend', 'active', '本地合成示例', 'https://vuejs.org', '合成示例，未获得真实社群授权', 0, unixepoch(), unixepoch()),
+('golang', 'golang', 'Go 语言社区', 'Go 开发、并发编程、微服务架构', 'backend', 'active', '本地合成示例', 'https://go.dev', '合成示例，未获得真实社群授权', 0, unixepoch(), unixepoch()),
+('pytorch', 'pytorch', 'PyTorch 中文社区', '深度学习、神经网络、模型优化', 'ml', 'active', 'Discord', 'https://pytorch.org', '合成示例，未获得真实社群授权', 0, unixepoch(), unixepoch()),
+('figma-cn', 'figma-cn', 'Figma 设计师社区', 'UI 设计、原型、组件系统分享', 'ui', 'active', 'Slack', 'https://figma.com', '合成示例，未获得真实社群授权', 0, unixepoch(), unixepoch()),
 ('indie-cn', 'indie-cn', '独立开发者', '独立产品、变现、技术栈选择', 'pm', 'active', 'Telegram', '', '', 0, unixepoch(), unixepoch());
 `
 

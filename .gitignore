@@ -9,3 +9,11 @@ bin/
 *.db-wal
 *.exe
 coverage.out
+
+__pycache__/
+*.backup
+*.backup.json
+*.vault.key
+*.backup.key
+*.operations.jsonl*
+*.csrf.key

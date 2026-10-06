@@ -99,9 +99,6 @@ func (app *App) audit(event string) {
 	_, _ = app.db.Exec("INSERT INTO security_events VALUES(?,?,?)", uuid.NewString(), event, time.Now().Unix())
 }
 func (app *App) protect(handler http.Handler) http.Handler {
-	if app.secret == "" {
-		return handler
-	}
 	protected := csrf.Protect(app.csrfKey, csrf.CookieName("star_atlas_csrf"), csrf.Secure(false), csrf.HttpOnly(true), csrf.Path("/"), csrf.SameSite(csrf.SameSiteLaxMode), csrf.ErrorHandler(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		respond(writer, 403, map[string]string{"code": "CSRF_INVALID", "message": "请刷新页面再试"})
 	})))(handler)
@@ -410,10 +407,11 @@ func (app *App) callback(writer http.ResponseWriter, request *http.Request) {
 }
 
 type remoteState struct {
-	Active    bool   `json:"active"`
-	Status    string `json:"status"`
-	Version   int64  `json:"status_version"`
-	ExpiresAt int64  `json:"expires_at"`
+	Active     bool   `json:"active"`
+	Status     string `json:"status"`
+	Version    int64  `json:"status_version"`
+	OccurredAt int64  `json:"occurred_at"`
+	ExpiresAt  int64  `json:"expires_at"`
 }
 
 func (app *App) getInternal(ctx context.Context, path string, output any) error {
@@ -439,18 +437,21 @@ func (app *App) remoteSession(ctx context.Context, accountID, sid string) (remot
 }
 
 type identityEvent struct {
-	Sequence  int64  `json:"sequence"`
-	ID        string `json:"event_id"`
-	AccountID string `json:"account_id"`
-	SID       string `json:"sid"`
-	Type      string `json:"event_type"`
-	Status    string `json:"status"`
-	Version   int64  `json:"status_version"`
+	Sequence   int64  `json:"sequence"`
+	ID         string `json:"event_id"`
+	AccountID  string `json:"account_id"`
+	SID        string `json:"sid"`
+	Type       string `json:"event_type"`
+	Status     string `json:"status"`
+	Version    int64  `json:"status_version"`
+	OccurredAt int64  `json:"occurred_at"`
 }
 
 func (app *App) syncIdentity(ctx context.Context) error {
 	app.syncMu.Lock()
 	defer app.syncMu.Unlock()
+	app.opsMu.Lock()
+	defer app.opsMu.Unlock()
 	var cursor int64
 	if err := app.db.QueryRowContext(ctx, "SELECT value FROM identity_cursor WHERE id=1").Scan(&cursor); err != nil {
 		return err
@@ -489,6 +490,50 @@ func (app *App) syncIdentity(ctx context.Context) error {
 				}
 				if err == nil {
 					_, err = transaction.Exec("UPDATE users SET status=?,status_version=? WHERE account_id=? AND status_version<?", event.Status, event.Version, event.AccountID, event.Version)
+				}
+				if err == nil && applied > 0 && (event.Status == "deactivated" || event.Status == "deleted") {
+					var localID string
+					var retain int
+					e := transaction.QueryRow("SELECT u.id,s.retain_content FROM users u JOIN user_settings s ON s.user_id=u.id WHERE u.account_id=?", event.AccountID).Scan(&localID, &retain)
+					if e == nil {
+						action := "deactivate-user"
+						if retain == 1 {
+							action = "retain-user"
+						}
+						var retained []string
+						rows, e := transaction.Query("SELECT object_id FROM retained_objects WHERE user_id=?", localID)
+						if e != nil {
+							transaction.Rollback()
+							return e
+						}
+						for rows.Next() {
+							var id string
+							rows.Scan(&id)
+							retained = append(retained, id)
+						}
+						rows.Close()
+						op := operation{EventID: event.ID, ObjectID: localID, Action: action, Retained: retained, CreatedAt: event.OccurredAt}
+						if op.CreatedAt <= 0 || op.CreatedAt > time.Now().Unix()+60 {
+							op.CreatedAt = time.Now().Unix()
+						}
+						if op.EventID == "" {
+							op.EventID = randomID()
+						}
+						if op.Action == "deactivate-user" {
+							err = app.preserveUserWithdrawal(transaction, op)
+						}
+						if err == nil {
+							err = app.appendOperation(op)
+						}
+						if err == nil {
+							err = applyOperationSQL(transaction, op)
+						}
+						if err == nil {
+							_, err = transaction.Exec("UPDATE users SET status=? WHERE id=?", event.Status, localID)
+						}
+					} else if e != sql.ErrNoRows {
+						err = e
+					}
 				}
 				if err == nil && applied > 0 && event.Status != "active" {
 					_, err = transaction.Exec("UPDATE sessions SET revoked_at=? WHERE user_id IN (SELECT id FROM users WHERE account_id=?) AND revoked_at IS NULL", time.Now().Unix(), event.AccountID)
@@ -554,6 +599,7 @@ func (app *App) Worker(ctx context.Context) {
 			if app.secret != "" {
 				_ = app.syncIdentity(ctx)
 			}
+			app.maintenanceTasks()
 			for query, cutoff := range map[string]int64{"DELETE FROM auth_limits WHERE reset_at<=?": time.Now().Unix(), "DELETE FROM oidc_flows WHERE expires_at<=?": time.Now().Unix(), "DELETE FROM consumed_tokens WHERE expires_at<=?": time.Now().Unix(), "DELETE FROM revoked_account_sessions WHERE expires_at<=?": time.Now().Unix(), "DELETE FROM security_events WHERE created_at<?": time.Now().Add(-30 * 24 * time.Hour).Unix(), "DELETE FROM sessions WHERE COALESCE(revoked_at,expires_at)<?": time.Now().Add(-30 * 24 * time.Hour).Unix()} {
 				_, _ = app.db.ExecContext(ctx, query, cutoff)
 			}

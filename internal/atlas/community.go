@@ -3,13 +3,13 @@ package atlas
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"html/template"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
 type Domain struct {
@@ -98,7 +98,7 @@ func (app *App) communityRoutes(router *chi.Mux) {
 			<p class="page-subtitle">探索感兴趣的领域，找到志同道合的社群</p>`)
 
 		for _, domain := range domains {
-			contentBuf.WriteString(`<div class="domain-section">
+			contentBuf.WriteString(`<div id="domain-` + esc(domain.ID) + `" class="domain-section">
 				<h2 class="domain-title">`)
 			contentBuf.WriteString(template.HTMLEscapeString(domain.Name))
 			contentBuf.WriteString(`</h2>
@@ -107,14 +107,14 @@ func (app *App) communityRoutes(router *chi.Mux) {
 			contentBuf.WriteString(`</p>`)
 
 			for _, direction := range domain.Directions {
-				contentBuf.WriteString(`<div class="direction-section">
+				contentBuf.WriteString(`<div id="direction-` + esc(direction.ID) + `" class="direction-section">
 					<h3 class="direction-title">`)
 				contentBuf.WriteString(template.HTMLEscapeString(direction.Name))
 				contentBuf.WriteString(`</h3>`)
 
 				for _, subcategory := range direction.Subcategories {
 					if len(subcategory.Communities) > 0 {
-						contentBuf.WriteString(`<div class="subcategory-section">
+						contentBuf.WriteString(`<div id="subcategory-` + esc(subcategory.ID) + `" class="subcategory-section">
 							<h4 class="subcategory-title">`)
 						contentBuf.WriteString(template.HTMLEscapeString(subcategory.Name))
 						contentBuf.WriteString(`</h4>
@@ -146,7 +146,33 @@ func (app *App) communityRoutes(router *chi.Mux) {
 			contentBuf.WriteString(`</div>`)
 		}
 
-		contentBuf.WriteString(`</div>`)
+		rows, err := app.db.Query("SELECT slug,name FROM communities WHERE status='uncategorized' OR (status='active' AND subcategory_id IS NULL) ORDER BY name,id")
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		contentBuf.WriteString(`<section id="uncategorized"><h2>待分类社群</h2>`)
+		count := 0
+		for rows.Next() {
+			var slug, name string
+			if err = rows.Scan(&slug, &name); err != nil {
+				rows.Close()
+				fail(w, err)
+				return
+			}
+			contentBuf.WriteString(`<p><a href="/c/` + pathID(slug) + `">` + esc(name) + `</a></p>`)
+			count++
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		if count == 0 {
+			contentBuf.WriteString(`<p>暂无待分类社群。</p>`)
+		}
+		contentBuf.WriteString(`</section></div>`)
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_ = app.page.Execute(w, PageData{
@@ -179,7 +205,7 @@ func (app *App) communityRoutes(router *chi.Mux) {
 			respond(w, 503, map[string]string{"code": "DEPENDENCY_UNAVAILABLE"})
 			return
 		}
-		if community.Status != "active" {
+		if community.Status != "active" && community.Status != "uncategorized" {
 			respond(w, 404, map[string]string{"code": "NOT_FOUND", "message": "社群不可用"})
 			return
 		}
@@ -194,198 +220,9 @@ func (app *App) communityRoutes(router *chi.Mux) {
 		})
 	})
 
-	// Community detail page
-	router.Get("/c/{slug}", func(w http.ResponseWriter, r *http.Request) {
-		slug := chi.URLParam(r, "slug")
-		community, err := app.getCommunityBySlug(slug)
-		if err == sql.ErrNoRows {
-			w.WriteHeader(404)
-			w.Write([]byte("社群不存在"))
-			return
-		}
-		if err != nil {
-			w.WriteHeader(503)
-			w.Write([]byte("服务暂时不可用"))
-			return
-		}
-		if community.Status != "active" {
-			w.WriteHeader(404)
-			w.Write([]byte("社群不可用"))
-			return
-		}
-
-		topics, _ := app.listTopics(community.ID)
-		collections, _ := app.listCollections(community.ID)
-		posts, _ := app.listPosts(community.ID, 10)
-
-		identity, _, _ := app.currentIdentity(r)
-
-		type PageData struct {
-			Title       string
-			Page        string
-			Identity    *Identity
-			Content     template.HTML
-			Community   *Community
-			Topics      []Topic
-			Collections []Collection
-		}
-
-		var contentBuf strings.Builder
-		contentBuf.WriteString(`<nav class="breadcrumb">
-			<a href="/">首页</a>
-			<span class="breadcrumb-sep">/</span>
-			<a href="/discover">发现</a>
-			<span class="breadcrumb-sep">/</span>
-			<span>`)
-		contentBuf.WriteString(template.HTMLEscapeString(community.Name))
-		contentBuf.WriteString(`</span>
-		</nav>
-		<div class="community-header">
-			<h1 class="community-title">`)
-		contentBuf.WriteString(template.HTMLEscapeString(community.Name))
-		if community.Verified {
-			contentBuf.WriteString(` <span class="status-badge verified">已验证</span>`)
-		}
-		contentBuf.WriteString(`</h1>
-			<p class="community-subtitle">`)
-		contentBuf.WriteString(template.HTMLEscapeString(community.Description))
-		contentBuf.WriteString(`</p>
-			<div class="community-actions">
-				<button class="btn">关注</button>
-				<button class="btn btn-secondary">分享</button>
-			</div>
-		</div>`)
-
-		if len(topics) > 0 {
-			contentBuf.WriteString(`<div class="content-section">
-				<h2 class="section-title">讨论主题</h2>
-				<div class="topic-list">`)
-			for _, topic := range topics {
-				contentBuf.WriteString(`<a href="/c/`)
-				contentBuf.WriteString(template.URLQueryEscaper(slug))
-				contentBuf.WriteString(`/t/`)
-				contentBuf.WriteString(template.URLQueryEscaper(topic.Slug))
-				contentBuf.WriteString(`" class="topic-tag">`)
-				contentBuf.WriteString(template.HTMLEscapeString(topic.Name))
-				contentBuf.WriteString(`</a>`)
-			}
-			contentBuf.WriteString(`</div></div>`)
-		}
-
-		if len(collections) > 0 {
-			contentBuf.WriteString(`<div class="content-section">
-				<h2 class="section-title">`)
-			for _, coll := range collections {
-				if coll.Type == "announcement" {
-					contentBuf.WriteString(`公告`)
-				} else if coll.Type == "guide" {
-					contentBuf.WriteString(`新人指引`)
-				} else {
-					contentBuf.WriteString(`精选讨论`)
-				}
-				contentBuf.WriteString(`</h2>
-				<div class="collection-card">
-					<h3 class="collection-title">`)
-				contentBuf.WriteString(template.HTMLEscapeString(coll.Title))
-				contentBuf.WriteString(`</h3>
-					<div class="collection-content">`)
-				contentBuf.WriteString(template.HTMLEscapeString(coll.Content))
-				contentBuf.WriteString(`</div>
-				</div>`)
-				break
-			}
-				contentBuf.WriteString(`</div>`)
-			}
-
-			// Show recent posts in this community
-			if len(posts) > 0 {
-				contentBuf.WriteString(`<div class="content-section">
-					<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
-						<h2 class="section-title">最近讨论</h2>`)
-				if identity != nil {
-					contentBuf.WriteString(`<a href="/c/`)
-					contentBuf.WriteString(template.URLQueryEscaper(slug))
-					contentBuf.WriteString(`/new" class="btn">发布新帖</a>`)
-				}
-				contentBuf.WriteString(`</div>
-					<div class="feed-list">`)
-				for _, post := range posts {
-					contentBuf.WriteString(`<article class="feed-item">
-						<div class="feed-meta">
-							<a href="/u/`)
-					contentBuf.WriteString(template.URLQueryEscaper(post.AuthorID))
-					contentBuf.WriteString(`" class="feed-author">`)
-					contentBuf.WriteString(template.HTMLEscapeString(post.AuthorName))
-					contentBuf.WriteString(`</a>
-							<span>·</span>
-							<span>`)
-					contentBuf.WriteString(formatTime(post.CreatedAt))
-					contentBuf.WriteString(`</span>
-						</div>
-						<h3 class="feed-title">
-							<a href="/p/`)
-					contentBuf.WriteString(template.URLQueryEscaper(post.ID))
-					contentBuf.WriteString(`">`)
-					contentBuf.WriteString(template.HTMLEscapeString(post.Title))
-					contentBuf.WriteString(`</a>
-						</h3>
-						<p class="feed-excerpt">`)
-					excerpt := post.Content
-					if len(excerpt) > 150 {
-						excerpt = excerpt[:150] + "..."
-					}
-					contentBuf.WriteString(template.HTMLEscapeString(excerpt))
-					contentBuf.WriteString(`</p>
-						<div class="feed-stats">
-							<span>`)
-					contentBuf.WriteString(fmt.Sprintf("%d", post.ReplyCount))
-					contentBuf.WriteString(` 回复</span>
-							<span>·</span>
-							<span>`)
-					contentBuf.WriteString(fmt.Sprintf("%d", post.ViewCount))
-					contentBuf.WriteString(` 浏览</span>
-						</div>
-					</article>`)
-				}
-				contentBuf.WriteString(`</div>
-				</div>`)
-			} else if identity != nil {
-				contentBuf.WriteString(`<div class="content-section">
-					<div class="empty-state">
-						<p>还没有讨论，<a href="/c/`)
-				contentBuf.WriteString(template.URLQueryEscaper(slug))
-				contentBuf.WriteString(`/new" class="btn" style="display: inline-block; margin-top: var(--space-3);">发布第一篇帖子</a></p>
-					</div>
-				</div>`)
-			}
-
-			if community.SourceURL != "" {
-			contentBuf.WriteString(`<div class="content-section">
-				<h2 class="section-title">来源信息</h2>
-				<p style="color: var(--text-secondary); font-size: var(--text-sm);">
-					内容来源：<a href="`)
-			contentBuf.WriteString(template.HTMLEscapeString(community.SourceURL))
-			contentBuf.WriteString(`" target="_blank" rel="noopener">`)
-			contentBuf.WriteString(template.HTMLEscapeString(community.SourceURL))
-			contentBuf.WriteString(`</a><br>
-					许可协议：`)
-			contentBuf.WriteString(template.HTMLEscapeString(community.SourceLicense))
-			contentBuf.WriteString(`
-				</p>
-			</div>`)
-		}
-
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_ = app.page.Execute(w, PageData{
-			Title:       community.Name,
-			Page:        "community",
-			Identity:    identity,
-			Content:     template.HTML(contentBuf.String()),
-			Community:   community,
-			Topics:      topics,
-			Collections: collections,
-		})
-	})
+	router.Get("/c/{slug}", app.communityPage)
+	router.Get("/c/{slug}/t/{topic}", app.topicPage)
+	router.Get("/communities/{old}", app.oldCommunityPath)
 }
 
 func (app *App) listDomains() ([]Domain, error) {
@@ -569,7 +406,7 @@ func (app *App) searchCommunities(query string) ([]Community, error) {
 		SELECT id, slug, name, description, COALESCE(subcategory_id,''), status,
 		       contact_method, source_url, source_license, verified, created_at, updated_at
 		FROM communities
-		WHERE status='active' AND (name LIKE ? OR description LIKE ?)
+		WHERE status IN ('active','uncategorized') AND (name LIKE ? OR description LIKE ?)
 		ORDER BY verified DESC, name ASC
 		LIMIT 50
 	`, "%"+query+"%", "%"+query+"%")
@@ -641,20 +478,7 @@ func (app *App) listCollections(communityID string) ([]Collection, error) {
 	return collections, rows.Err()
 }
 
-func randomID() string {
-	const charset = "0123456789abcdefghijklmnopqrstuvwxyz"
-	b := make([]byte, 16)
-	now := time.Now().UnixNano()
-	for i := range b {
-		now = now*1103515245 + 12345
-		idx := (now / 65536) % int64(len(charset))
-		if idx < 0 {
-			idx = -idx
-		}
-		b[i] = charset[idx]
-	}
-	return string(b)
-}
+func randomID() string { return uuid.NewString() }
 
 func slugify(s string) string {
 	s = strings.ToLower(s)

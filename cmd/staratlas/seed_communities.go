@@ -49,9 +49,9 @@ func seedCommunities(dbPath string) error {
 	if _, err := tx.Exec(`
 		INSERT OR IGNORE INTO communities (id, slug, name, description, subcategory_id, status, contact_method, source_url, source_license, verified, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, communityID1, "pixel-game-dev", "像素游戏开发者",
+	`, communityID1, "pixel-game-dev", "像素游戏开发者（合成示例）",
 		"专注于像素艺术风格游戏的创作社群，分享开发经验、美术资源和游戏设计思路。",
-		subcategoryID, "active", "Discord: pixelgamedev", "https://example.com/pixel-games", "CC BY-SA 4.0", 1, now, now); err != nil {
+		subcategoryID, "active", "本地测试反馈，请联系项目负责人", "https://example.com/pixel-games", "synthetic / 本地演示，未获得真实社群授权", 0, now, now); err != nil {
 		return err
 	}
 
@@ -108,7 +108,7 @@ func seedCommunities(dbPath string) error {
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, communityID2, "film-photography", "胶片摄影爱好者",
 		"分享胶片摄影作品、冲洗经验和相机使用心得的社群。保留摄影的温度和质感。",
-		subcategoryID2, "active", "微信群：见置顶帖", "https://example.com/film-photo", "CC BY-NC 4.0", 1, now, now); err != nil {
+		subcategoryID2, "active", "本地合成示例，请联系项目负责人", "https://example.com/film-photo", "synthetic / 本地演示，未获得真实社群授权", 0, now, now); err != nil {
 		return err
 	}
 
@@ -161,7 +161,7 @@ func seedCommunities(dbPath string) error {
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, communityID3, "scifi-readers", "科幻阅读小组",
 		"一起阅读和讨论科幻作品，探索科技与人性、现实与想象的边界。",
-		subcategoryID3, "active", "豆瓣小组", "https://example.com/scifi", "CC BY 4.0", 1, now, now); err != nil {
+		subcategoryID3, "active", "本地合成示例，请联系项目负责人", "https://example.com/scifi", "synthetic / 本地演示，未获得真实社群授权", 0, now, now); err != nil {
 		return err
 	}
 

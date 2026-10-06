@@ -217,7 +217,7 @@ func TestMigrationFromVersionOnePreservesData(t *testing.T) {
 	}
 	var version int
 	app.db.QueryRow("SELECT max(version) FROM schema_migrations").Scan(&version)
-	if version != 5 {
+	if version != 6 {
 		t.Fatal("migration missing")
 	}
 	var alias string

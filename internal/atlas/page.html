@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
   <title>{{.Title}} - 星图 AtlasSite</title>
   <style>
     :root {
@@ -289,32 +290,10 @@
     .category-section:nth-child(1) { animation-delay: 50ms; }
     .category-section:nth-child(2) { animation-delay: 100ms; }
     .category-section:nth-child(3) { animation-delay: 150ms; }
-  </style>
-  <script>
-    function toggleBookmark(btn) {
-      if (btn.disabled) return;
-      btn.disabled = true;
-      const postId = btn.dataset.postId;
-      fetch('/api/v1/p/' + postId + '/bookmark', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.bookmarked) {
-          btn.classList.add('bookmarked');
-          btn.querySelector('.bookmark-icon').textContent = '★';
-          btn.querySelector('.bookmark-text').textContent = '已收藏';
-        } else {
-          btn.classList.remove('bookmarked');
-          btn.querySelector('.bookmark-icon').textContent = '☆';
-          btn.querySelector('.bookmark-text').textContent = '收藏';
-        }
-      })
-      .catch(err => console.error('收藏失败:', err))
-      .finally(() => btn.disabled = false);
-    }
-  </script>
+label {display:block;margin:12px 0} input:not([type=checkbox]),textarea,select {display:block;width:100%;max-width:100%;padding:10px;border:1px solid var(--border-default);background:var(--bg-primary);color:var(--text-primary);font:inherit} textarea {min-height:160px} button {padding:10px 16px;border:1px solid var(--border-default);background:var(--bg-secondary);color:var(--text-primary);cursor:pointer;margin:8px 4px 8px 0;font:inherit} img {max-width:100%;height:auto} pre {overflow:auto} .main {width:100%;min-width:0} .post-content {white-space:normal;overflow-wrap:anywhere} :focus-visible {outline:3px solid var(--accent-primary);outline-offset:3px}
+ @media(max-width:768px){.sidebar {position:static;flex-wrap:wrap}.nav {flex-wrap:wrap}.layout {display:block}}
+ </style>
+  <script src="/assets/core.js" defer></script>
 </head>
 <body>
   <div class="layout">
@@ -351,11 +330,13 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
           <span>通知</span>
         </a>
-        <a href="/profile" class="nav-item {{if eq .Page "profile"}}active{{end}}">
+        <a href="/settings" class="nav-item {{if eq .Page "profile"}}active{{end}}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           <span>我</span>
         </a>
-      </nav>
+      <a href="/help" class="nav-item">帮助</a>
+ {{if .Identity}}<a href="/security" class="nav-item">登录与安全</a>{{else}}<a href="/login" class="nav-item">登录</a>{{end}}
+ </nav>
     </aside>
 
     <main class="main">

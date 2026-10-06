@@ -19,9 +19,9 @@ func TestPostCreationAndRetrieval(t *testing.T) {
 	// Create a test identity
 	identityID := randomID()
 	_, err = app.db.Exec(`
-		INSERT INTO identities (id, name, email, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?)
-	`, identityID, "测试用户", "test@example.com", time.Now().Unix(), time.Now().Unix())
+		INSERT INTO users(id,alias,account_id,subject_id,status,status_version,issuer)
+ VALUES(?,?,?,? ,'active',1,'')
+	`, identityID, "测试用户", "test@example.com", randomID())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,9 +90,9 @@ func TestReplyCreationAndTree(t *testing.T) {
 	// Create test identity
 	identityID := randomID()
 	_, err = app.db.Exec(`
-		INSERT INTO identities (id, name, email, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?)
-	`, identityID, "测试用户", "test@example.com", time.Now().Unix(), time.Now().Unix())
+		INSERT INTO users(id,alias,account_id,subject_id,status,status_version,issuer)
+ VALUES(?,?,?,? ,'active',1,'')
+	`, identityID, "测试用户", "test@example.com", randomID())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,9 +174,9 @@ func TestPostDetailPage(t *testing.T) {
 	// Create test data
 	identityID := randomID()
 	_, err = app.db.Exec(`
-		INSERT INTO identities (id, name, email, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?)
-	`, identityID, "测试用户", "test@example.com", time.Now().Unix(), time.Now().Unix())
+		INSERT INTO users(id,alias,account_id,subject_id,status,status_version,issuer)
+ VALUES(?,?,?,? ,'active',1,'')
+	`, identityID, "测试用户", "test@example.com", randomID())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,9 +234,9 @@ func TestHomepageFeed(t *testing.T) {
 	// Create test data
 	identityID := randomID()
 	_, err = app.db.Exec(`
-		INSERT INTO identities (id, name, email, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?)
-	`, identityID, "测试用户", "test@example.com", time.Now().Unix(), time.Now().Unix())
+		INSERT INTO users(id,alias,account_id,subject_id,status,status_version,issuer)
+ VALUES(?,?,?,? ,'active',1,'')
+	`, identityID, "测试用户", "test@example.com", randomID())
 	if err != nil {
 		t.Fatal(err)
 	}

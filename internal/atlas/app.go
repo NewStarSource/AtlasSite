@@ -5,7 +5,6 @@ import (
 	_ "embed"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"html/template"
 	"io"
 	"net"
@@ -39,14 +38,23 @@ var postsSchema string
 //go:embed 005_user_activity.sql
 var userActivitySchema string
 
+//go:embed 006_core.sql
+var coreSchema string
+
 type Config struct {
-	Mode           string `json:"mode"`
-	Address        string `json:"address"`
-	Origin         string `json:"origin"`
-	AccountOrigin  string `json:"account_origin"`
-	Database       string `json:"database"`
-	OIDCSecretFile string `json:"oidc_secret_file"`
-	CSRFKeyFile    string `json:"csrf_key_file"`
+	Mode            string `json:"mode"`
+	Address         string `json:"address"`
+	Origin          string `json:"origin"`
+	AccountOrigin   string `json:"account_origin"`
+	Database        string `json:"database"`
+	OIDCSecretFile  string `json:"oidc_secret_file"`
+	CSRFKeyFile     string `json:"csrf_key_file"`
+	VaultDatabase   string `json:"vault_database"`
+	VaultKeyFile    string `json:"vault_key_file"`
+	BackupDirectory string `json:"backup_directory"`
+	BackupKeyFile   string `json:"backup_key_file"`
+	OpsJournalFile  string `json:"ops_journal_file"`
+	WriteUntil      string `json:"write_until,omitempty"`
 }
 
 func (config Config) Validate() error {
@@ -70,6 +78,11 @@ func (config Config) Validate() error {
 	}
 	if (config.OIDCSecretFile == "") != (config.CSRFKeyFile == "") {
 		return errors.New("OIDC 与 CSRF 配置必须同时提供")
+	}
+	if config.WriteUntil != "" {
+		if _, err := time.Parse(time.RFC3339, config.WriteUntil); err != nil {
+			return errors.New("write_until 必须为包含时区的 RFC3339 时间")
+		}
 	}
 	return nil
 }
@@ -106,13 +119,20 @@ func InitDevelopment() error {
 }
 
 type App struct {
-	db         *sql.DB
-	config     Config
-	page       *template.Template
-	secret     string
-	csrfKey    []byte
-	httpClient *http.Client
-	syncMu     sync.Mutex
+	db                *sql.DB
+	config            Config
+	page              *template.Template
+	secret            string
+	csrfKey           []byte
+	httpClient        *http.Client
+	syncMu            sync.Mutex
+	vault             *sql.DB
+	vaultKey          []byte
+	opsMu             sync.Mutex
+	jobsMu            sync.Mutex
+	lastCleanup       int64
+	lastBackup        int64
+	lastBackupAttempt int64
 }
 
 func New(config Config) (*App, error) {
@@ -122,7 +142,7 @@ func New(config Config) (*App, error) {
 	if err := os.MkdirAll(filepath.Dir(config.Database), 0700); err != nil {
 		return nil, err
 	}
-	database, err := sql.Open("sqlite", config.Database+"?_pragma=foreign_keys(1)&_pragma=busy_timeout(2000)&_pragma=synchronous(FULL)&_pragma=journal_mode(WAL)")
+	database, err := sql.Open("sqlite", config.Database+"?_pragma=foreign_keys(1)&_pragma=busy_timeout(2000)&_pragma=synchronous(FULL)&_pragma=journal_mode(WAL)&_pragma=secure_delete(ON)")
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +158,7 @@ func New(config Config) (*App, error) {
 		return nil, err
 	}
 	var version int
-	if err = transaction.QueryRow("SELECT max(version) FROM schema_migrations").Scan(&version); err != nil || version < 1 || version > 5 {
+	if err = transaction.QueryRow("SELECT max(version) FROM schema_migrations").Scan(&version); err != nil || version < 1 || version > 6 {
 		transaction.Rollback()
 		database.Close()
 		return nil, errors.New("unsupported schema version")
@@ -171,6 +191,13 @@ func New(config Config) (*App, error) {
 			return nil, err
 		}
 	}
+	if version < 6 {
+		if _, err = transaction.Exec(coreSchema); err != nil {
+			transaction.Rollback()
+			database.Close()
+			return nil, err
+		}
+	}
 	if err = transaction.Commit(); err != nil {
 		database.Close()
 		return nil, err
@@ -187,7 +214,7 @@ func New(config Config) (*App, error) {
 		database.Close()
 		return nil, errors.New("sqlite safety settings unavailable")
 	}
-	if err = os.Chmod(config.Database, 0600); err != nil {
+	if err = restrictPath(config.Database, false); err != nil {
 		database.Close()
 		return nil, err
 	}
@@ -204,12 +231,40 @@ func New(config Config) (*App, error) {
 			database.Close()
 			return nil, errors.New("身份配置密钥不可用")
 		}
+		if err = restrictPath(config.OIDCSecretFile, false); err != nil {
+			database.Close()
+			return nil, err
+		}
+		if err = restrictPath(config.CSRFKeyFile, false); err != nil {
+			database.Close()
+			return nil, err
+		}
 		app.secret = string(secret)
 		app.csrfKey = key
 	}
+	if len(app.csrfKey) == 0 {
+		app.csrfKey, err = restrictedKey(config.Database + ".csrf.key")
+		if err != nil {
+			app.Close()
+			return nil, err
+		}
+	}
+	if err := app.initVault(); err != nil {
+		app.Close()
+		return nil, err
+	}
+	if err := app.reconcileJournal(); err != nil {
+		app.Close()
+		return nil, err
+	}
 	return app, nil
 }
-func (app *App) Close() error { return app.db.Close() }
+func (app *App) Close() error {
+	if app.vault != nil {
+		app.vault.Close()
+	}
+	return app.db.Close()
+}
 func respond(writer http.ResponseWriter, status int, value any) {
 	writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 	writer.WriteHeader(status)
@@ -217,191 +272,17 @@ func respond(writer http.ResponseWriter, status int, value any) {
 }
 func (app *App) Handler() http.Handler {
 	router := chi.NewRouter()
-	router.Get("/", func(writer http.ResponseWriter, request *http.Request) {
-		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
-		identity, _, _ := app.currentIdentity(request)
-
-		// Get recent posts from all communities
-		posts, _ := app.listRecentPosts(20)
-
-		type PageData struct {
-			Title    string
-			Page     string
-			Identity *Identity
-			Content  template.HTML
-		}
-
-		var contentBuf strings.Builder
-		contentBuf.WriteString(`<div class="page-header">
-			<h1 class="page-title">首页动态</h1>
-			<p class="page-subtitle">探索社群的最新内容</p>
-		</div>`)
-
-		if identity != nil {
-			contentBuf.WriteString(`<div class="composer-quick">
-			<a href="/discover" class="btn">浏览社群并发布内容</a>
-		</div>`)
-		}
-
-		if len(posts) > 0 {
-			contentBuf.WriteString(`<div class="feed-list">`)
-			for _, post := range posts {
-				contentBuf.WriteString(`<article class="feed-item">
-				<div class="feed-meta">
-					<a href="/u/`)
-				contentBuf.WriteString(template.URLQueryEscaper(post.AuthorID))
-				contentBuf.WriteString(`" class="feed-author">`)
-				contentBuf.WriteString(template.HTMLEscapeString(post.AuthorName))
-				contentBuf.WriteString(`</a>
-					<span>发布于</span>
-					<a href="/c/`)
-				contentBuf.WriteString(template.URLQueryEscaper(post.CommunityID))
-				contentBuf.WriteString(`" class="feed-community">`)
-				contentBuf.WriteString(template.HTMLEscapeString(post.CommunityName))
-				contentBuf.WriteString(`</a>
-					<span>·</span>
-					<span>`)
-				contentBuf.WriteString(formatTime(post.CreatedAt))
-				contentBuf.WriteString(`</span>
-				</div>
-				<h2 class="feed-title">
-					<a href="/p/`)
-				contentBuf.WriteString(template.URLQueryEscaper(post.ID))
-				contentBuf.WriteString(`">`)
-				contentBuf.WriteString(template.HTMLEscapeString(post.Title))
-				contentBuf.WriteString(`</a>
-				</h2>
-				<p class="feed-excerpt">`)
-				excerpt := post.Content
-				if len(excerpt) > 200 {
-					excerpt = excerpt[:200] + "..."
-				}
-				contentBuf.WriteString(template.HTMLEscapeString(excerpt))
-				contentBuf.WriteString(`</p>
-				<div class="feed-stats">
-					<span>`)
-				contentBuf.WriteString(fmt.Sprintf("%d", post.ReplyCount))
-				contentBuf.WriteString(` 回复</span>
-					<span>·</span>
-					<span>`)
-				contentBuf.WriteString(fmt.Sprintf("%d", post.ViewCount))
-				contentBuf.WriteString(` 浏览</span>
-				</div>
-			</article>`)
-			}
-			contentBuf.WriteString(`</div>`)
-		} else {
-			contentBuf.WriteString(`<div class="empty-state">
-			<p>还没有帖子，快去<a href="/discover" style="color: var(--accent-primary);">发现社群</a>并发布第一篇吧！</p>
-		</div>`)
-		}
-
-		_ = app.page.Execute(writer, PageData{
-			Title:    "星图 AtlasSite",
-			Page:     "home",
-			Identity: identity,
-			Content:  template.HTML(contentBuf.String()),
-		})
-	})
-	router.Get("/config", func(writer http.ResponseWriter, request *http.Request) {
-		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
-		identity, _, identityErr := app.currentIdentity(request)
-		if identityErr != nil {
-			respond(writer, 503, map[string]string{"code": "DEPENDENCY_UNAVAILABLE"})
-			return
-		}
-		_ = app.page.Execute(writer, struct {
-			Config
-			Identity *Identity
-			Enabled  bool
-		}{app.config, identity, app.secret != ""})
-	})
-	router.Get("/search", func(writer http.ResponseWriter, request *http.Request) {
-		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
-		identity, _, _ := app.currentIdentity(request)
-		query := request.URL.Query().Get("q")
-
-		type PageData struct {
-			Title    string
-			Page     string
-			Identity *Identity
-			Content  template.HTML
-			Query    string
-		}
-
-		var contentBuf strings.Builder
-		contentBuf.WriteString(`<div class="search-header">
-			<div class="search-input-container">
-				<svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<circle cx="11" cy="11" r="8"/>
-					<path d="m21 21-4.35-4.35"/>
-				</svg>
-				<form method="get" action="/search">
-					<input type="search" name="q" class="search-input" placeholder="搜索社群、内容或用户…" value="`)
-		contentBuf.WriteString(template.HTMLEscapeString(query))
-		contentBuf.WriteString(`" autofocus>
-				</form>
-			</div>
-		</div>`)
-
-		if query == "" {
-			contentBuf.WriteString(`<div class="empty-state">
-				<p>输入关键词开始搜索</p>
-			</div>`)
-		} else {
-			// 搜索社群
-			communities, err := app.searchCommunities(query)
-			if err != nil || len(communities) == 0 {
-				contentBuf.WriteString(`<div class="empty-state">
-					<p>没有找到匹配"`)
-				contentBuf.WriteString(template.HTMLEscapeString(query))
-				contentBuf.WriteString(`"的结果</p>
-				</div>`)
-			} else {
-				contentBuf.WriteString(`<div class="result-group">
-					<div class="result-group-header">
-						<h2 class="result-group-title">社群</h2>
-						<span class="result-group-count">`)
-				contentBuf.WriteString(fmt.Sprintf("%d", len(communities)))
-				contentBuf.WriteString(` 条结果</span>
-					</div>
-					<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--space-4);">`)
-
-				for _, community := range communities {
-					contentBuf.WriteString(`<a href="/c/`)
-					contentBuf.WriteString(template.URLQueryEscaper(community.Slug))
-					contentBuf.WriteString(`" class="community-card">
-							<div class="community-name">`)
-					contentBuf.WriteString(template.HTMLEscapeString(community.Name))
-					if community.Verified {
-						contentBuf.WriteString(` <span class="status-badge verified">✓</span>`)
-					}
-					contentBuf.WriteString(`</div>
-							<div class="community-desc">`)
-					contentBuf.WriteString(template.HTMLEscapeString(community.Description))
-					contentBuf.WriteString(`</div>
-						</a>`)
-				}
-
-				contentBuf.WriteString(`</div>
-				</div>`)
-			}
-		}
-
-		_ = app.page.Execute(writer, PageData{
-			Title:    "搜索",
-			Page:     "search",
-			Identity: identity,
-			Content:  template.HTML(contentBuf.String()),
-			Query:    query,
-		})
+	router.Get("/", app.homePage)
+	router.Get("/search", app.searchPage)
+	router.Get("/config", func(w http.ResponseWriter, r *http.Request) {
+		app.renderPage(w, r, "配置清单", "config", `<h1>本地测试配置</h1><p>当前仅开放本地合成验收，真实用户尚未接入。</p><p>登录凭据由新星账户持有；图片经星图鉴权，草稿及敏感材料独立加密保存。</p>`)
 	})
 	router.Get("/health", func(writer http.ResponseWriter, request *http.Request) {
 		if err := app.db.PingContext(request.Context()); err != nil {
 			respond(writer, 503, map[string]string{"code": "DEPENDENCY_UNAVAILABLE"})
 			return
 		}
-		respond(writer, 200, map[string]any{"ok": true, "service": "star-atlas", "stage": "S03", "oidc_configured": app.secret != "", "integration": "本地合成；真实环境未联调", "real_users": false})
+		respond(writer, 200, map[string]any{"ok": true, "service": "star-atlas", "stage": "core-local", "oidc_configured": app.secret != "", "integration": "本地合成；真实环境未联调", "real_users": false})
 	})
 	router.Get("/api/v1/config", func(writer http.ResponseWriter, request *http.Request) {
 		respond(writer, 200, map[string]any{"service": "star-atlas", "password_owner": "star-account", "account_origin": app.config.AccountOrigin, "oidc_configured": app.secret != "", "real_users": false})
@@ -423,6 +304,12 @@ func (app *App) Handler() http.Handler {
 	app.communityRoutes(router)
 	app.postsRoutes(router)
 	app.userRoutes(router)
+	app.contentRoutes(router)
+	app.rightsRoutes(router)
+	app.mediaRoutes(router)
+	app.notificationRoutes(router)
+	app.subscriptionRoutes(router)
+	app.operationsRoutes(router)
 	router.Get("/robots.txt", func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		io.WriteString(writer, "User-agent: *\nDisallow: /\n")
@@ -437,15 +324,19 @@ func (app *App) Handler() http.Handler {
 		writer.Header().Set("Referrer-Policy", "strict-origin")
 		writer.Header().Set("X-Content-Type-Options", "nosniff")
 		writer.Header().Set("X-Frame-Options", "DENY")
-		writer.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+		writer.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
 		if request.Host != app.config.Address {
 			respond(writer, 400, map[string]string{"code": "HOST_INVALID"})
 			return
 		}
-		request.Body = http.MaxBytesReader(writer, request.Body, 8192)
-		protected.ServeHTTP(writer, request)
+		limit := int64(384 * 1024)
+		if request.URL.Path == "/api/v1/media" {
+			limit = (8 * 1024 * 1024) + (128 * 1024)
+		}
+		request.Body = http.MaxBytesReader(writer, request.Body, limit)
+		app.maintenanceGate(protected).ServeHTTP(writer, request)
 	})
 }
 func Server(config Config, handler http.Handler) *http.Server {
-	return &http.Server{Addr: config.Address, Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 20 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16384}
+	return &http.Server{Addr: config.Address, Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 75 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16384}
 }

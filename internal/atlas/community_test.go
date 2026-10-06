@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -34,6 +35,30 @@ func TestCommunityRoutes(t *testing.T) {
 	tx.Commit()
 
 	handler := app.Handler()
+	t.Run("ClassificationAndUncategorizedVisibility", func(t *testing.T) {
+		if _, err := app.db.Exec(`INSERT INTO communities VALUES('uncat','uncat-comm','待分类测试','描述',NULL,'uncategorized','','','synthetic',0,?,?)`, now, now); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := app.db.Exec(`INSERT INTO communities VALUES('hidden','hidden-comm','隐藏测试','描述',NULL,'pending','','','synthetic',0,?,?)`, now, now); err != nil {
+			t.Fatal(err)
+		}
+		for _, route := range []string{"/discover", "/c/test-comm", "/c/uncat-comm"} {
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, httptest.NewRequest("GET", "http://127.0.0.1:4200"+route, nil))
+			if w.Code != 200 || strings.Contains(w.Body.String(), "隐藏测试") {
+				t.Fatalf("classification visibility %s: %d %s", route, w.Code, w.Body.String())
+			}
+			if route == "/discover" && !strings.Contains(w.Body.String(), "/c/uncat-comm") {
+				t.Fatal("uncategorized entry absent")
+			}
+			if route == "/c/test-comm" && !strings.Contains(w.Body.String(), "/discover#direction-test-dir") {
+				t.Fatal("classification breadcrumb absent")
+			}
+			if route == "/c/uncat-comm" && !strings.Contains(w.Body.String(), "来源待核实") {
+				t.Fatal("verification status absent")
+			}
+		}
+	})
 
 	t.Run("GetCommunityBySlug", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "http://127.0.0.1:4200/api/v1/c/test-comm", nil)

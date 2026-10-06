@@ -1,7 +1,17 @@
 # StarAtlas 星图
 
 按 `D:/NewStarProject/SAfiles/TECH-01` 的 Go + chi + SQLite 基线建设。
-当前交付至 S03 的本地合成验收范围。账户服务位于相邻 `StarAccount` 仓库。
+当前已补齐核心内容、用户权利和本地运维链路，仍限 development/test 回环环境。账户服务位于相邻 `StarAccount` 仓库。
+
+本次交付见 [核心缺口补齐记录](docs/CORE_GAPS_2026-10-06.md)、[运行与恢复步骤](docs/RUNBOOK_CORE.md)、[代码差异复查](docs/REVIEW_CORE_2026-10-06.md)。数据库升级至 schema 6；升级前停止旧进程并保存迁移前副本，旧二进制不能直接打开新库。
+
+一次执行两个仓库的 Go 测试、vet、漏洞扫描、构建及原始 HTTP 联调：
+
+```powershell
+pwsh -File scripts/check_core.ps1
+```
+
+脚本不进行图形浏览器复现。真实部署、全天告警、获授权示例和邀请观察的实际状态见交付记录。
 
 ## 启动
 

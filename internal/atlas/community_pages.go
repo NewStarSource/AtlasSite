@@ -1,0 +1,174 @@
+package atlas
+
+import (
+	"database/sql"
+	"net/http"
+	"net/url"
+	"strings"
+
+	"github.com/go-chi/chi/v5"
+)
+
+func safeSource(value string) bool {
+	u, err := url.Parse(value)
+	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != "" && u.User == nil
+}
+func (app *App) readableCommunity(r *http.Request) (*Community, error) {
+	c, err := app.getCommunityBySlug(chi.URLParam(r, "slug"))
+	if err != nil {
+		return nil, err
+	}
+	if c.Status != "active" && c.Status != "uncategorized" {
+		return nil, sql.ErrNoRows
+	}
+	return c, nil
+}
+func (app *App) communityPage(w http.ResponseWriter, r *http.Request) {
+	c, err := app.readableCommunity(r)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	i, _, _ := app.currentIdentity(r)
+	viewer := ""
+	if i != nil {
+		viewer = i.ID
+	}
+	breadcrumb, err := app.communityBreadcrumb(c)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	body := breadcrumb + `<h1>` + esc(c.Name) + `</h1><p>` + esc(c.Description) + `</p><p>状态 ` + esc(c.Status) + ` · 接触方式 ` + esc(c.ContactMethod) + `</p><p>许可 ` + esc(c.SourceLicense) + `</p>`
+	if c.Verified {
+		body += `<p>来源已核验</p>`
+	} else {
+		body += `<p>来源待核实</p>`
+	}
+	if safeSource(c.SourceURL) {
+		body += `<p>来源 <a rel="noopener noreferrer" href="` + esc(c.SourceURL) + `">` + esc(c.SourceURL) + `</a> · 许可 ` + esc(c.SourceLicense) + `</p>`
+	}
+	body += app.subscriptionForm(r, "community", c.ID)
+	topics, err := app.listTopics(c.ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	body += `<h2>主题</h2>`
+	for _, t := range topics {
+		body += `<p><a href="/c/` + pathID(c.Slug) + `/t/` + pathID(t.Slug) + `">` + esc(t.Name) + `</a> · ` + esc(t.Description) + `</p>`
+	}
+	collections, err := app.listCollections(c.ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	for _, collection := range collections {
+		body += `<section><h2>` + esc(collection.Title) + `</h2>`
+		if collection.Type == "discussion" {
+			rows, e := app.db.Query("SELECT p.id FROM collection_refs cr JOIN posts p ON p.id=cr.post_id WHERE cr.collection_id=? AND p.community_id=? AND "+visiblePostSQL+" ORDER BY p.created_at,p.id", collection.ID, c.ID)
+			if e != nil {
+				fail(w, e)
+				return
+			}
+			var ids []string
+			for rows.Next() {
+				var id string
+				rows.Scan(&id)
+				ids = append(ids, id)
+			}
+			rows.Close()
+			for _, id := range ids {
+				p, e := app.getPost(id)
+				if e == nil && app.postVisible(id, viewer) {
+					body += `<p><a href="/p/` + pathID(id) + `">` + esc(p.Title) + `</a></p>`
+				}
+			}
+			if len(ids) == 0 {
+				body += `<p>暂无可展示的讨论引用。</p>`
+			}
+		} else {
+			body += `<div>` + renderMarkdown(collection.Content) + `</div>`
+		}
+		body += `</section>`
+	}
+	posts, err := app.listPosts(c.ID, 50)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	body += `<h2>最近讨论</h2><p><a href="/c/` + pathID(c.Slug) + `/new">发布讨论</a></p>` + app.postCards(posts, viewer)
+	app.renderPage(w, r, c.Name, "community", body)
+}
+
+func (app *App) communityBreadcrumb(c *Community) (string, error) {
+	body := `<nav aria-label="分类路径"><a href="/discover">社群目录</a>`
+	if c.Status == "uncategorized" || c.SubcategoryID == "" {
+		return body + ` / <a href="/discover#uncategorized">待分类</a> / ` + esc(c.Name) + `</nav>`, nil
+	}
+	var domainID, domain, directionID, direction, subcategory string
+	err := app.db.QueryRow(`SELECT d.id,d.name,di.id,di.name,s.name FROM subcategories s JOIN directions di ON di.id=s.direction_id JOIN domains d ON d.id=di.domain_id WHERE s.id=?`, c.SubcategoryID).Scan(&domainID, &domain, &directionID, &direction, &subcategory)
+	if err != nil {
+		return "", err
+	}
+	body += ` / <a href="/discover#domain-` + pathID(domainID) + `">` + esc(domain) + `</a>`
+	body += ` / <a href="/discover#direction-` + pathID(directionID) + `">` + esc(direction) + `</a>`
+	body += ` / <a href="/discover#subcategory-` + pathID(c.SubcategoryID) + `">` + esc(subcategory) + `</a>`
+	return body + ` / ` + esc(c.Name) + `</nav>`, nil
+}
+func (app *App) topicPage(w http.ResponseWriter, r *http.Request) {
+	c, err := app.readableCommunity(r)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	var id, name, description string
+	err = app.db.QueryRow("SELECT id,name,description FROM topics WHERE community_id=? AND slug=? AND status='active'", c.ID, chi.URLParam(r, "topic")).Scan(&id, &name, &description)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	posts, err := app.listPosts(c.ID, 100)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	selected := make([]Post, 0, len(posts))
+	for _, p := range posts {
+		var n int
+		if app.db.QueryRow("SELECT count(*) FROM post_topics WHERE post_id=? AND topic_id=?", p.ID, id).Scan(&n) == nil && n > 0 {
+			selected = append(selected, p)
+		}
+	}
+	i, _, _ := app.currentIdentity(r)
+	viewer := ""
+	if i != nil {
+		viewer = i.ID
+	}
+	app.renderPage(w, r, name, "topic", `<nav><a href="/c/`+pathID(c.Slug)+`">`+esc(c.Name)+`</a></nav><h1>`+esc(name)+`</h1><p>`+esc(description)+`</p>`+app.subscriptionForm(r, "topic", id)+app.postCards(selected, viewer))
+}
+func (app *App) oldCommunityPath(w http.ResponseWriter, r *http.Request) {
+	var slug string
+	err := app.db.QueryRow("SELECT c.slug FROM community_paths cp JOIN communities c ON c.id=cp.community_id WHERE cp.path=? AND c.status IN ('active','uncategorized')", chi.URLParam(r, "old")).Scan(&slug)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	http.Redirect(w, r, "/c/"+pathID(slug), 301)
+}
+func (app *App) associationForm(r *http.Request, p *Post, version int) string {
+	body := `<h2>社群与主题关联</h2>` + formStart(r, "/api/v1/p/"+pathID(p.ID)+"/association") + versionField(version) + `<label>社群路径（留空解除关联）<input name="community" value="` + esc(p.CommunitySlug) + `"></label>`
+	if p.CommunityID != "" {
+		topics, _ := app.listTopics(p.CommunityID)
+		for _, t := range topics {
+			var n int
+			app.db.QueryRow("SELECT count(*) FROM post_topics WHERE post_id=? AND topic_id=?", p.ID, t.ID).Scan(&n)
+			checked := ""
+			if n > 0 {
+				checked = " checked"
+			}
+			body += `<label><input type="checkbox" name="topic_ids" value="` + esc(t.ID) + `"` + checked + `>` + esc(t.Name) + `</label>`
+		}
+	}
+	return strings.TrimSpace(body) + `<button>保存关联</button></form>`
+}

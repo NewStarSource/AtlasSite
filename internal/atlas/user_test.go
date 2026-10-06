@@ -19,9 +19,9 @@ func TestUserActivityPage(t *testing.T) {
 	// Create test identity
 	identityID := randomID()
 	_, err = app.db.Exec(`
-		INSERT INTO identities (id, name, email, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?)
-	`, identityID, "测试用户", "test@example.com", time.Now().Unix(), time.Now().Unix())
+		INSERT INTO users(id,alias,account_id,subject_id,status,status_version,issuer)
+ VALUES(?,?,?,? ,'active',1,'')
+	`, identityID, "测试用户", "test@example.com", randomID())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,9 +90,9 @@ func TestBookmarkFunctionality(t *testing.T) {
 	// Create test identity
 	identityID := randomID()
 	_, err = app.db.Exec(`
-		INSERT INTO identities (id, name, email, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?)
-	`, identityID, "测试用户", "test@example.com", time.Now().Unix(), time.Now().Unix())
+		INSERT INTO users(id,alias,account_id,subject_id,status,status_version,issuer)
+ VALUES(?,?,?,? ,'active',1,'')
+	`, identityID, "测试用户", "test@example.com", randomID())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,15 +186,13 @@ func TestListPostsByAuthor(t *testing.T) {
 	}
 	defer app.Close()
 
-	now := time.Now().Unix()
-
 	// Create test identities
 	author1ID := randomID()
 	author2ID := randomID()
 	_, err = app.db.Exec(`
-		INSERT INTO identities (id, name, email, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?)
-	`, author1ID, "作者1", "author1@example.com", now, now)
+		INSERT INTO users(id,alias,account_id,subject_id,status,status_version,issuer)
+ VALUES(?,?,?,? ,'active',1,'')
+	`, author1ID, "作者1", "author1@example.com", randomID())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,9 +202,9 @@ func TestListPostsByAuthor(t *testing.T) {
 	author2ID = randomID()
 
 	_, err = app.db.Exec(`
-		INSERT INTO identities (id, name, email, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?)
-	`, author2ID, "作者2", "author2@example.com", now, now)
+		INSERT INTO users(id,alias,account_id,subject_id,status,status_version,issuer)
+ VALUES(?,?,?,? ,'active',1,'')
+	`, author2ID, "作者2", "author2@example.com", randomID())
 	if err != nil {
 		t.Fatal(err)
 	}
