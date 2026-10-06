@@ -33,6 +33,9 @@ var identitySchema string
 //go:embed 003_communities.sql
 var communitiesSchema string
 
+//go:embed 004_posts.sql
+var postsSchema string
+
 type Config struct {
 	Mode           string `json:"mode"`
 	Address        string `json:"address"`
@@ -132,7 +135,7 @@ func New(config Config) (*App, error) {
 		return nil, err
 	}
 	var version int
-	if err = transaction.QueryRow("SELECT max(version) FROM schema_migrations").Scan(&version); err != nil || version < 1 || version > 3 {
+	if err = transaction.QueryRow("SELECT max(version) FROM schema_migrations").Scan(&version); err != nil || version < 1 || version > 4 {
 		transaction.Rollback()
 		database.Close()
 		return nil, errors.New("unsupported schema version")
@@ -146,6 +149,13 @@ func New(config Config) (*App, error) {
 	}
 	if version < 3 {
 		if _, err = transaction.Exec(communitiesSchema); err != nil {
+			transaction.Rollback()
+			database.Close()
+			return nil, err
+		}
+	}
+	if version < 4 {
+		if _, err = transaction.Exec(postsSchema); err != nil {
 			transaction.Rollback()
 			database.Close()
 			return nil, err
@@ -201,6 +211,9 @@ func (app *App) Handler() http.Handler {
 		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
 		identity, _, _ := app.currentIdentity(request)
 
+		// Get recent posts from all communities
+		posts, _ := app.listRecentPosts(20)
+
 		type PageData struct {
 			Title    string
 			Page     string
@@ -210,15 +223,68 @@ func (app *App) Handler() http.Handler {
 
 		var contentBuf strings.Builder
 		contentBuf.WriteString(`<div class="page-header">
-			<h1 class="page-title">欢迎来到星图</h1>
-			<p class="page-subtitle">探索互联网社群文化的公共空间</p>
-		</div>
-		<div class="empty-state">
-			<p>动态流功能即将上线，敬请期待。</p>
-			<p style="margin-top: var(--space-4);">
-				<a href="/discover" style="color: var(--accent-primary);">现在就去发现社群 →</a>
-			</p>
+			<h1 class="page-title">首页动态</h1>
+			<p class="page-subtitle">探索社群的最新内容</p>
 		</div>`)
+
+		if identity != nil {
+			contentBuf.WriteString(`<div class="composer-quick">
+			<a href="/discover" class="btn">浏览社群并发布内容</a>
+		</div>`)
+		}
+
+		if len(posts) > 0 {
+			contentBuf.WriteString(`<div class="feed-list">`)
+			for _, post := range posts {
+				contentBuf.WriteString(`<article class="feed-item">
+				<div class="feed-meta">
+					<a href="/u/`)
+				contentBuf.WriteString(template.URLQueryEscaper(post.AuthorID))
+				contentBuf.WriteString(`" class="feed-author">`)
+				contentBuf.WriteString(template.HTMLEscapeString(post.AuthorName))
+				contentBuf.WriteString(`</a>
+					<span>发布于</span>
+					<a href="/c/`)
+				contentBuf.WriteString(template.URLQueryEscaper(post.CommunityID))
+				contentBuf.WriteString(`" class="feed-community">`)
+				contentBuf.WriteString(template.HTMLEscapeString(post.CommunityName))
+				contentBuf.WriteString(`</a>
+					<span>·</span>
+					<span>`)
+				contentBuf.WriteString(formatTime(post.CreatedAt))
+				contentBuf.WriteString(`</span>
+				</div>
+				<h2 class="feed-title">
+					<a href="/p/`)
+				contentBuf.WriteString(template.URLQueryEscaper(post.ID))
+				contentBuf.WriteString(`">`)
+				contentBuf.WriteString(template.HTMLEscapeString(post.Title))
+				contentBuf.WriteString(`</a>
+				</h2>
+				<p class="feed-excerpt">`)
+				excerpt := post.Content
+				if len(excerpt) > 200 {
+					excerpt = excerpt[:200] + "..."
+				}
+				contentBuf.WriteString(template.HTMLEscapeString(excerpt))
+				contentBuf.WriteString(`</p>
+				<div class="feed-stats">
+					<span>`)
+				contentBuf.WriteString(fmt.Sprintf("%d", post.ReplyCount))
+				contentBuf.WriteString(` 回复</span>
+					<span>·</span>
+					<span>`)
+				contentBuf.WriteString(fmt.Sprintf("%d", post.ViewCount))
+				contentBuf.WriteString(` 浏览</span>
+				</div>
+			</article>`)
+			}
+			contentBuf.WriteString(`</div>`)
+		} else {
+			contentBuf.WriteString(`<div class="empty-state">
+			<p>还没有帖子，快去<a href="/discover" style="color: var(--accent-primary);">发现社群</a>并发布第一篇吧！</p>
+		</div>`)
+		}
 
 		_ = app.page.Execute(writer, PageData{
 			Title:    "星图 AtlasSite",
@@ -239,92 +305,6 @@ func (app *App) Handler() http.Handler {
 			Identity *Identity
 			Enabled  bool
 		}{app.config, identity, app.secret != ""})
-	})
-	router.Get("/discover", func(writer http.ResponseWriter, request *http.Request) {
-		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
-		identity, _, _ := app.currentIdentity(request)
-		domains, err := app.listDomains()
-		if err != nil {
-			respond(writer, 503, map[string]string{"code": "DEPENDENCY_UNAVAILABLE"})
-			return
-		}
-
-		type PageData struct {
-			Title    string
-			Page     string
-			Identity *Identity
-			Content  template.HTML
-		}
-
-		var contentBuf strings.Builder
-		contentBuf.WriteString(`<div class="page-header">
-			<h1 class="page-title">发现社群</h1>
-			<p class="page-subtitle">探索由领域专家和爱好者维护的社群空间</p>
-		</div>
-		<div class="category-grid">`)
-
-		for _, domain := range domains {
-			directions, _ := app.listDirections(domain.ID)
-
-			contentBuf.WriteString(`<section class="category-section">
-				<div class="category-header">
-					<h2 class="category-title">`)
-			contentBuf.WriteString(template.HTMLEscapeString(domain.Name))
-			contentBuf.WriteString(`</h2>
-					<p class="category-desc">`)
-			contentBuf.WriteString(template.HTMLEscapeString(domain.Description))
-			contentBuf.WriteString(`</p>
-				</div>`)
-
-			if len(directions) > 0 {
-				contentBuf.WriteString(`<div class="direction-list">`)
-				for _, direction := range directions {
-					subcategories, _ := app.listSubcategories(direction.ID)
-
-					contentBuf.WriteString(`<div class="direction-item">
-						<div class="direction-name">`)
-					contentBuf.WriteString(template.HTMLEscapeString(direction.Name))
-					contentBuf.WriteString(`</div>
-						<div class="direction-desc">`)
-					contentBuf.WriteString(template.HTMLEscapeString(direction.Description))
-					contentBuf.WriteString(`</div>`)
-
-					if len(subcategories) > 0 {
-						contentBuf.WriteString(`<div class="subcategory-list">`)
-						for _, subcategory := range subcategories {
-							communities, _ := app.listCommunitiesBySubcategory(subcategory.ID)
-							communityCount := len(communities)
-
-							contentBuf.WriteString(`<span class="subcategory-tag" title="`)
-							contentBuf.WriteString(template.HTMLEscapeString(subcategory.Description))
-							contentBuf.WriteString(`">`)
-							contentBuf.WriteString(template.HTMLEscapeString(subcategory.Name))
-							if communityCount > 0 {
-								contentBuf.WriteString(` (`)
-								contentBuf.WriteString(fmt.Sprintf("%d", communityCount))
-								contentBuf.WriteString(`)`)
-							}
-							contentBuf.WriteString(`</span>`)
-						}
-						contentBuf.WriteString(`</div>`)
-					}
-
-					contentBuf.WriteString(`</div>`)
-				}
-				contentBuf.WriteString(`</div>`)
-			}
-
-			contentBuf.WriteString(`</section>`)
-		}
-
-		contentBuf.WriteString(`</div>`)
-
-		_ = app.page.Execute(writer, PageData{
-			Title:    "发现社群",
-			Page:     "discover",
-			Identity: identity,
-			Content:  template.HTML(contentBuf.String()),
-		})
 	})
 	router.Get("/search", func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -431,6 +411,7 @@ func (app *App) Handler() http.Handler {
 	}
 	app.identityRoutes(router)
 	app.communityRoutes(router)
+	app.postsRoutes(router)
 	router.Get("/robots.txt", func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		io.WriteString(writer, "User-agent: *\nDisallow: /\n")

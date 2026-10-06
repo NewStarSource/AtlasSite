@@ -3,6 +3,7 @@ package atlas
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"html/template"
 	"net/http"
 	"strings"
@@ -73,6 +74,89 @@ type Collection struct {
 }
 
 func (app *App) communityRoutes(router *chi.Mux) {
+	// Discovery page
+	router.Get("/discover", func(w http.ResponseWriter, r *http.Request) {
+		domains, err := app.listDomainsWithHierarchy()
+		if err != nil {
+			w.WriteHeader(503)
+			w.Write([]byte("服务暂时不可用"))
+			return
+		}
+
+		identity, _, _ := app.currentIdentity(r)
+
+		type PageData struct {
+			Title    string
+			Page     string
+			Identity *Identity
+			Content  template.HTML
+		}
+
+		var contentBuf strings.Builder
+		contentBuf.WriteString(`<div class="discover-container">
+			<h1 class="page-title">发现社群</h1>
+			<p class="page-subtitle">探索感兴趣的领域，找到志同道合的社群</p>`)
+
+		for _, domain := range domains {
+			contentBuf.WriteString(`<div class="domain-section">
+				<h2 class="domain-title">`)
+			contentBuf.WriteString(template.HTMLEscapeString(domain.Name))
+			contentBuf.WriteString(`</h2>
+				<p class="domain-description">`)
+			contentBuf.WriteString(template.HTMLEscapeString(domain.Description))
+			contentBuf.WriteString(`</p>`)
+
+			for _, direction := range domain.Directions {
+				contentBuf.WriteString(`<div class="direction-section">
+					<h3 class="direction-title">`)
+				contentBuf.WriteString(template.HTMLEscapeString(direction.Name))
+				contentBuf.WriteString(`</h3>`)
+
+				for _, subcategory := range direction.Subcategories {
+					if len(subcategory.Communities) > 0 {
+						contentBuf.WriteString(`<div class="subcategory-section">
+							<h4 class="subcategory-title">`)
+						contentBuf.WriteString(template.HTMLEscapeString(subcategory.Name))
+						contentBuf.WriteString(`</h4>
+							<div class="community-grid">`)
+
+						for _, community := range subcategory.Communities {
+							contentBuf.WriteString(`<a href="/c/`)
+							contentBuf.WriteString(template.URLQueryEscaper(community.Slug))
+							contentBuf.WriteString(`" class="community-card">
+								<h5 class="community-card-title">`)
+							contentBuf.WriteString(template.HTMLEscapeString(community.Name))
+							if community.Verified {
+								contentBuf.WriteString(` <span class="badge-verified">✓</span>`)
+							}
+							contentBuf.WriteString(`</h5>
+								<p class="community-card-description">`)
+							contentBuf.WriteString(template.HTMLEscapeString(community.Description))
+							contentBuf.WriteString(`</p>
+							</a>`)
+						}
+
+						contentBuf.WriteString(`</div></div>`)
+					}
+				}
+
+				contentBuf.WriteString(`</div>`)
+			}
+
+			contentBuf.WriteString(`</div>`)
+		}
+
+		contentBuf.WriteString(`</div>`)
+
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_ = app.page.Execute(w, PageData{
+			Title:    "发现社群",
+			Page:     "discover",
+			Identity: identity,
+			Content:  template.HTML(contentBuf.String()),
+		})
+	})
+
 	// Domain listing API
 	router.Get("/api/v1/discover", func(w http.ResponseWriter, r *http.Request) {
 		domains, err := app.listDomains()
@@ -132,6 +216,7 @@ func (app *App) communityRoutes(router *chi.Mux) {
 
 		topics, _ := app.listTopics(community.ID)
 		collections, _ := app.listCollections(community.ID)
+		posts, _ := app.listPosts(community.ID, 10)
 
 		identity, _, _ := app.currentIdentity(r)
 
@@ -209,10 +294,72 @@ func (app *App) communityRoutes(router *chi.Mux) {
 				</div>`)
 				break
 			}
-			contentBuf.WriteString(`</div>`)
-		}
+				contentBuf.WriteString(`</div>`)
+			}
 
-		if community.SourceURL != "" {
+			// Show recent posts in this community
+			if len(posts) > 0 {
+				contentBuf.WriteString(`<div class="content-section">
+					<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+						<h2 class="section-title">最近讨论</h2>`)
+				if identity != nil {
+					contentBuf.WriteString(`<a href="/c/`)
+					contentBuf.WriteString(template.URLQueryEscaper(slug))
+					contentBuf.WriteString(`/new" class="btn">发布新帖</a>`)
+				}
+				contentBuf.WriteString(`</div>
+					<div class="feed-list">`)
+				for _, post := range posts {
+					contentBuf.WriteString(`<article class="feed-item">
+						<div class="feed-meta">
+							<a href="/u/`)
+					contentBuf.WriteString(template.URLQueryEscaper(post.AuthorID))
+					contentBuf.WriteString(`" class="feed-author">`)
+					contentBuf.WriteString(template.HTMLEscapeString(post.AuthorName))
+					contentBuf.WriteString(`</a>
+							<span>·</span>
+							<span>`)
+					contentBuf.WriteString(formatTime(post.CreatedAt))
+					contentBuf.WriteString(`</span>
+						</div>
+						<h3 class="feed-title">
+							<a href="/p/`)
+					contentBuf.WriteString(template.URLQueryEscaper(post.ID))
+					contentBuf.WriteString(`">`)
+					contentBuf.WriteString(template.HTMLEscapeString(post.Title))
+					contentBuf.WriteString(`</a>
+						</h3>
+						<p class="feed-excerpt">`)
+					excerpt := post.Content
+					if len(excerpt) > 150 {
+						excerpt = excerpt[:150] + "..."
+					}
+					contentBuf.WriteString(template.HTMLEscapeString(excerpt))
+					contentBuf.WriteString(`</p>
+						<div class="feed-stats">
+							<span>`)
+					contentBuf.WriteString(fmt.Sprintf("%d", post.ReplyCount))
+					contentBuf.WriteString(` 回复</span>
+							<span>·</span>
+							<span>`)
+					contentBuf.WriteString(fmt.Sprintf("%d", post.ViewCount))
+					contentBuf.WriteString(` 浏览</span>
+						</div>
+					</article>`)
+				}
+				contentBuf.WriteString(`</div>
+				</div>`)
+			} else if identity != nil {
+				contentBuf.WriteString(`<div class="content-section">
+					<div class="empty-state">
+						<p>还没有讨论，<a href="/c/`)
+				contentBuf.WriteString(template.URLQueryEscaper(slug))
+				contentBuf.WriteString(`/new" class="btn" style="display: inline-block; margin-top: var(--space-3);">发布第一篇帖子</a></p>
+					</div>
+				</div>`)
+			}
+
+			if community.SourceURL != "" {
 			contentBuf.WriteString(`<div class="content-section">
 				<h2 class="section-title">来源信息</h2>
 				<p style="color: var(--text-secondary); font-size: var(--text-sm);">
@@ -301,11 +448,77 @@ func (app *App) listSubcategories(directionID string) ([]Subcategory, error) {
 	return subcategories, rows.Err()
 }
 
+type DomainWithHierarchy struct {
+	Domain
+	Directions []DirectionWithHierarchy
+}
+
+type DirectionWithHierarchy struct {
+	Direction
+	Subcategories []SubcategoryWithCommunities
+}
+
+type SubcategoryWithCommunities struct {
+	Subcategory
+	Communities []Community
+}
+
+func (app *App) listDomainsWithHierarchy() ([]DomainWithHierarchy, error) {
+	domains, err := app.listDomains()
+	if err != nil {
+		return nil, err
+	}
+
+	var result []DomainWithHierarchy
+	for _, domain := range domains {
+		directions, err := app.listDirections(domain.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		var directionsWithSubs []DirectionWithHierarchy
+		for _, direction := range directions {
+			subcategories, err := app.listSubcategories(direction.ID)
+			if err != nil {
+				return nil, err
+			}
+
+			var subsWithComms []SubcategoryWithCommunities
+			for _, subcategory := range subcategories {
+				communities, err := app.listCommunitiesBySubcategory(subcategory.ID)
+				if err != nil {
+					return nil, err
+				}
+
+				subsWithComms = append(subsWithComms, SubcategoryWithCommunities{
+					Subcategory: subcategory,
+					Communities: communities,
+				})
+			}
+
+			directionsWithSubs = append(directionsWithSubs, DirectionWithHierarchy{
+				Direction:     direction,
+				Subcategories: subsWithComms,
+			})
+		}
+
+		result = append(result, DomainWithHierarchy{
+			Domain:     domain,
+			Directions: directionsWithSubs,
+		})
+	}
+
+	return result, nil
+}
+
 func (app *App) listCommunitiesBySubcategory(subcategoryID string) ([]Community, error) {
 	rows, err := app.db.Query(`
-		SELECT id, slug, name, description, subcategory_id, status, contact_method,
-		       source_url, source_license, verified, created_at, updated_at
-		FROM communities WHERE subcategory_id=? AND status='active' ORDER BY created_at DESC
+		SELECT id, slug, name, description, subcategory_id, status,
+		       contact_method, source_url, source_license, verified,
+		       created_at, updated_at
+		FROM communities
+		WHERE subcategory_id = ? AND status = 'active'
+		ORDER BY verified DESC, name
 	`, subcategoryID)
 	if err != nil {
 		return nil, err
@@ -315,14 +528,16 @@ func (app *App) listCommunitiesBySubcategory(subcategoryID string) ([]Community,
 	var communities []Community
 	for rows.Next() {
 		var c Community
-		var verified int
 		var createdAt, updatedAt int64
-		if err := rows.Scan(&c.ID, &c.Slug, &c.Name, &c.Description, &c.SubcategoryID,
+		var subcatID sql.NullString
+		if err := rows.Scan(&c.ID, &c.Slug, &c.Name, &c.Description, &subcatID,
 			&c.Status, &c.ContactMethod, &c.SourceURL, &c.SourceLicense,
-			&verified, &createdAt, &updatedAt); err != nil {
+			&c.Verified, &createdAt, &updatedAt); err != nil {
 			return nil, err
 		}
-		c.Verified = verified == 1
+		if subcatID.Valid {
+			c.SubcategoryID = subcatID.String
+		}
 		c.CreatedAt = time.Unix(createdAt, 0)
 		c.UpdatedAt = time.Unix(updatedAt, 0)
 		communities = append(communities, c)

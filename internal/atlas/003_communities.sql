@@ -77,4 +77,4 @@ CREATE TABLE collections (
 
 CREATE INDEX collections_community ON collections(community_id, type) WHERE status='published';
 
-INSERT INTO schema_migrations VALUES(3);
+INSERT INTO schema_migrations VALUES(3, '003_communities', unixepoch());

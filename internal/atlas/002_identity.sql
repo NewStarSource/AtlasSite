@@ -14,4 +14,4 @@ CREATE TABLE revoked_account_sessions(sid TEXT PRIMARY KEY, expires_at INTEGER N
 CREATE TABLE account_states(account_id TEXT PRIMARY KEY, status TEXT NOT NULL, version INTEGER NOT NULL);
 CREATE TABLE security_events(id TEXT PRIMARY KEY,event TEXT NOT NULL,created_at INTEGER NOT NULL);
 CREATE TABLE auth_limits(key TEXT PRIMARY KEY,count INTEGER NOT NULL,reset_at INTEGER NOT NULL);
-INSERT INTO schema_migrations VALUES(2);
+INSERT INTO schema_migrations VALUES(2, '002_identity', unixepoch());
