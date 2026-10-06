@@ -116,9 +116,38 @@ func (app *App) postsRoutes(router *chi.Mux) {
 		contentBuf.WriteString(`</div>
 			<div class="post-actions">
 				<button class="action-btn">👍 赞</button>
-				<button class="action-btn">💬 回复</button>
-				<button class="action-btn">🔖 收藏</button>
-				<button class="action-btn">⋯ 更多</button>
+				<button class="action-btn" onclick="document.querySelector('.reply-composer textarea')?.focus()">💬 回复</button>`)
+
+		// Check if bookmarked
+		isBookmarked := false
+		if identity != nil {
+			isBookmarked, _ = app.isBookmarked(identity.ID, postID)
+		}
+
+		if identity != nil {
+			if isBookmarked {
+				contentBuf.WriteString(`
+				<button class="action-btn bookmark-btn bookmarked" data-post-id="`)
+				contentBuf.WriteString(template.HTMLEscapeString(postID))
+				contentBuf.WriteString(`" onclick="toggleBookmark(this)">
+					<span class="bookmark-icon">★</span>
+					<span class="bookmark-text">已收藏</span>
+				</button>`)
+			} else {
+				contentBuf.WriteString(`
+				<button class="action-btn bookmark-btn" data-post-id="`)
+				contentBuf.WriteString(template.HTMLEscapeString(postID))
+				contentBuf.WriteString(`" onclick="toggleBookmark(this)">
+					<span class="bookmark-icon">☆</span>
+					<span class="bookmark-text">收藏</span>
+				</button>`)
+			}
+		} else {
+			contentBuf.WriteString(`
+				<button class="action-btn">🔖 收藏</button>`)
+		}
+
+		contentBuf.WriteString(`
 			</div>
 		</article>`)
 

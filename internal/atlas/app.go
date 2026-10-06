@@ -36,6 +36,9 @@ var communitiesSchema string
 //go:embed 004_posts.sql
 var postsSchema string
 
+//go:embed 005_user_activity.sql
+var userActivitySchema string
+
 type Config struct {
 	Mode           string `json:"mode"`
 	Address        string `json:"address"`
@@ -135,7 +138,7 @@ func New(config Config) (*App, error) {
 		return nil, err
 	}
 	var version int
-	if err = transaction.QueryRow("SELECT max(version) FROM schema_migrations").Scan(&version); err != nil || version < 1 || version > 4 {
+	if err = transaction.QueryRow("SELECT max(version) FROM schema_migrations").Scan(&version); err != nil || version < 1 || version > 5 {
 		transaction.Rollback()
 		database.Close()
 		return nil, errors.New("unsupported schema version")
@@ -156,6 +159,13 @@ func New(config Config) (*App, error) {
 	}
 	if version < 4 {
 		if _, err = transaction.Exec(postsSchema); err != nil {
+			transaction.Rollback()
+			database.Close()
+			return nil, err
+		}
+	}
+	if version < 5 {
+		if _, err = transaction.Exec(userActivitySchema); err != nil {
 			transaction.Rollback()
 			database.Close()
 			return nil, err
@@ -412,6 +422,7 @@ func (app *App) Handler() http.Handler {
 	app.identityRoutes(router)
 	app.communityRoutes(router)
 	app.postsRoutes(router)
+	app.userRoutes(router)
 	router.Get("/robots.txt", func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		io.WriteString(writer, "User-agent: *\nDisallow: /\n")
