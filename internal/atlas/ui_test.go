@@ -93,3 +93,17 @@ func TestHomeComposerOpensEditorWithoutPublishing(t *testing.T) {
 	form.Set("content", strings.Repeat("字", 50001))
 	mustStatus(t, author.call("POST", "/new", form, true), 400)
 }
+
+func TestProfileMarkdownDoesNotLoadImages(t *testing.T) {
+	profile := renderProfileMarkdown("## 关于我\n\n**编程**\n\n- 阅读\n- 创作\n\n<script>alert(1)</script>\n\n[危险](javascript:alert(1))\n\n![外站](https://example.invalid/tracker.png)\n\n![站内](/media/private-id)")
+	for _, expected := range []string{"<h2>关于我</h2>", "<strong>编程</strong>", "<ul>"} {
+		if !strings.Contains(profile, expected) {
+			t.Fatal("Markdown profile formatting missing", expected)
+		}
+	}
+	for _, forbidden := range []string{"<script>", "javascript:", "<img", "tracker.png", "private-id"} {
+		if strings.Contains(profile, forbidden) {
+			t.Fatal("unsafe or image content in profile", forbidden)
+		}
+	}
+}

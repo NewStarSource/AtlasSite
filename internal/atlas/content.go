@@ -21,11 +21,19 @@ type draftBody struct{ Title, Content, Community, License string }
 var markdown = goldmark.New(goldmark.WithExtensions(extension.Table, extension.Strikethrough, extension.Footnote))
 
 func renderMarkdown(value string) string {
+	return renderMarkdownImages(value, true)
+}
+
+func renderProfileMarkdown(value string) string {
+	return renderMarkdownImages(value, false)
+}
+
+func renderMarkdownImages(value string, allowMedia bool) string {
 	source := []byte(value)
 	doc := markdown.Parser().Parse(gmtext.NewReader(source))
 	ast.Walk(doc, func(n ast.Node, enter bool) (ast.WalkStatus, error) {
 		if enter {
-			if image, ok := n.(*ast.Image); ok && !strings.HasPrefix(string(image.Destination), "/media/") {
+			if image, ok := n.(*ast.Image); ok && (!allowMedia || !strings.HasPrefix(string(image.Destination), "/media/")) {
 				n.Parent().RemoveChild(n.Parent(), n)
 				return ast.WalkSkipChildren, nil
 			}

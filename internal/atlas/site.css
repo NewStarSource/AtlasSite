@@ -2099,7 +2099,7 @@
       color: var(--text-tertiary);
       pointer-events: none;
     }
-.page-search .search-input{
+.page-search .search-input-container>.search-input[type=search]{
       width: 100%;
       padding: var(--space-3) var(--space-4) var(--space-3) calc(var(--space-4) * 2 + 20px);
       background: var(--bg-secondary);
@@ -2110,13 +2110,13 @@
       color: var(--text-primary);
       transition: all var(--transition-base);
     }
-.page-search .search-input:focus{
+.page-search .search-input-container>.search-input[type=search]:focus{
       outline: none;
       background: var(--bg-primary);
       border-color: var(--accent-primary);
       box-shadow: var(--focus-ring);
     }
-.page-search .search-input:hover:not(:focus){
+.page-search .search-input-container>.search-input[type=search]:hover:not(:focus){
       border-color: var(--border-default);
       background: var(--bg-tertiary);
     }
@@ -2429,6 +2429,16 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
 .sidebar-footer .utility-links{display:flex;gap:16px;font-size:var(--text-xs);color:var(--text-tertiary)}
 .nav-item svg{flex-shrink:0}
 .composer-toolbar>.btn{flex-shrink:0;white-space:nowrap}
+.page-search .search-submit{position:absolute;left:6px;top:50%;transform:translateY(-50%);width:44px;height:44px;display:flex;align-items:center;justify-content:center;padding:0;margin:0;border:0;border-radius:50%;background:none;color:var(--text-secondary)}
+.page-search .search-submit:hover{background:var(--bg-hover);color:var(--text-primary)}
+.page-search .search-submit svg{width:20px;height:20px}
+.page-search .search-input-container{margin-bottom:0}
+.page-search .search-input-container>.search-input[type=search]{margin:0;min-height:52px;padding-left:56px}
+.profile-bio{min-width:0;overflow-wrap:anywhere;text-align:left}
+.profile-bio.prose a{color:var(--accent-primary)}
+.profile-bio.prose p{margin:8px 0}
+.profile-bio.prose h1,.profile-bio.prose h2,.profile-bio.prose h3,.profile-bio.prose h4,.profile-bio.prose h5,.profile-bio.prose h6{font-size:var(--text-base);margin:12px 0 6px}
+.profile-bio.prose pre{max-width:100%;font-size:var(--text-sm)}
 .mobile-header{display:none}
 .site-footer{font-size:var(--text-xs);color:var(--text-tertiary);display:flex;gap:18px;padding:24px 0;margin-top:40px;border-top:1px solid var(--border-subtle);flex-wrap:wrap}
 .skip-link{position:fixed;top:-80px;left:16px;background:var(--bg-primary);z-index:120;padding:8px 16px}

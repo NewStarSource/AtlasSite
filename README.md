@@ -7,6 +7,8 @@
 
 前端已按用户指定的 SAfiles HTML 重做并精简页面文字，当前样式、实际操作结果与桌面/手机截图见 [SAfiles 前端对齐与精简](docs/UI_REFERENCE_2026-10-06.md)。
 
+搜索框与图标按钮修正、账户简介 Markdown 编辑和跨服务展示见 [搜索与账户简介 Markdown](docs/UI_SEARCH_PROFILE_2026-10-06.md)。
+
 一次执行两个仓库的 Go 测试、vet、漏洞扫描、构建及原始 HTTP 联调：
 
 ```powershell

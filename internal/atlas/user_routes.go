@@ -70,7 +70,7 @@ func (app *App) registerUserRoutes(router *chi.Mux) {
 		}
 		body := `<header class="profile-header"><span class="avatar">` + esc(avatarInitial(name)) + `</span><div class="profile-info"><h1 class="profile-name">` + esc(name) + `</h1>`
 		if profile.Bio != "" {
-			body += `<p class="profile-bio">` + esc(profile.Bio) + `</p>`
+			body += `<div class="profile-bio prose">` + renderProfileMarkdown(profile.Bio) + `</div>`
 		}
 		if profile.Location != "" {
 			body += `<p class="profile-meta">` + esc(profile.Location) + `</p>`
@@ -137,7 +137,7 @@ func (app *App) registerUserRoutes(router *chi.Mux) {
 			respond(w, 503, map[string]string{"code": "PROFILE_UNAVAILABLE"})
 			return
 		}
-		body := pageHeading("PUBLIC PROFILE", alias, "公开个人资料", `<a class="btn" href="/u/`+pathID(id)+`">返回公开主页</a>`) + `<section class="panel"><h2>` + esc(profile.DisplayName) + `</h2><p>` + esc(profile.Bio) + `</p><p class="muted">` + esc(profile.Location) + `</p>`
+		body := pageHeading("PUBLIC PROFILE", alias, "公开个人资料", `<a class="btn" href="/u/`+pathID(id)+`">返回公开主页</a>`) + `<section class="panel"><h2>` + esc(profile.DisplayName) + `</h2><div class="profile-bio prose">` + renderProfileMarkdown(profile.Bio) + `</div><p class="muted">` + esc(profile.Location) + `</p>`
 		if safeSource(profile.Website) {
 			body += `<p><a rel="noopener noreferrer" href="` + esc(profile.Website) + `">个人网站</a></p>`
 		}
@@ -210,7 +210,7 @@ func (app *App) searchPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body := `<h1 class="sr-only">搜索</h1><form class="search-header" action="/search"><div class="search-input-container"><svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input class="search-input" aria-label="搜索关键词" placeholder="搜索内容、社群或用户…" type="search" name="q" value="` + esc(q) + `" maxlength="100">` + field("type", kind) + `</div><button class="btn btn-secondary">搜索</button></form><nav class="filter-group" aria-label="搜索类型">`
+	body := `<h1 class="sr-only">搜索</h1><form class="search-header" action="/search"><div class="search-input-container"><button class="search-submit" type="submit" aria-label="搜索" title="搜索">` + uiIcon("search") + `</button><input class="search-input" aria-label="搜索关键词" placeholder="搜索内容、社群或用户…" type="search" name="q" value="` + esc(q) + `" maxlength="100">` + field("type", kind) + `</div></form><nav class="filter-group" aria-label="搜索类型">`
 	for _, filter := range [][2]string{{"", "全部"}, {"post", "内容"}, {"community", "社群"}, {"topic", "主题"}, {"user", "用户"}} {
 		class := "filter-btn"
 		if filter[0] == kind {

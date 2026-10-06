@@ -56,9 +56,13 @@ def main():
             authorize(client, account, atlas, username, password)
             session = json.loads(client.request(atlas + "/api/v1/session")[2])
             owner = session["user"]["id"]
-            expect(form_post(client, account, "/api/v1/security/update-profile", {"display_name": "合成显示名称", "bio": "合成个人简介", "location": "合成地点", "website": "https://example.test"}), 200, "save profile")
-            assert "合成个人简介" in expect(client.request(account + "/profile"), 200, "profile refill")[2]
-            assert "合成个人简介" in expect(client.request(atlas + "/u/" + owner + "/profile"), 200, "profile through account API")[2]
+            profile_bio = "## 合成个人简介\n\n**真实排版**\n\n- 阅读\n- 编程\n\n<script>alert(1)</script>\n\n[危险链接](javascript:alert(1))\n\n![图片](https://example.test/tracker.png)"
+            expect(form_post(client, account, "/api/v1/security/update-profile", {"display_name": "合成显示名称", "bio": profile_bio, "location": "合成地点", "website": "https://example.test"}), 200, "save Markdown profile")
+            assert "**真实排版**" in expect(client.request(account + "/profile"), 200, "profile source refill")[2]
+            for path in ("/u/" + owner, "/u/" + owner + "/profile"):
+                profile_html = expect(client.request(atlas + path), 200, "Markdown profile through account API")[2]
+                assert "<strong>真实排版</strong>" in profile_html and "<ul>" in profile_html
+                assert "<script>alert(1)</script>" not in profile_html and "javascript:" not in profile_html and "tracker.png" not in profile_html
             expect(form_post(client, account, "/api/v1/security/update-profile", {"website": "javascript:alert(1)"}), 400, "unsafe website rejected")
             print("PASS real OIDC identity and profile refill/proxy; unsafe website rejected")
 
