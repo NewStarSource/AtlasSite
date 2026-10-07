@@ -64,11 +64,8 @@ func (app *App) subscriptionControl(r *http.Request, kind, object string) string
 	}
 	var count int
 	app.db.QueryRow("SELECT count(*) FROM subscriptions WHERE user_id=? AND kind=? AND object_id=?", i.ID, kind, object).Scan(&count)
-	label, subscribed := "订阅", "true"
-	if count > 0 {
-		label, subscribed = "取消订阅", "false"
-	}
-	return formStart(r, "/api/v1/subscriptions") + field("kind", kind) + field("object_id", object) + field("subscribed", subscribed) + `<button class="btn">` + label + `</button></form>`
+	control := stateForm(r, "/api/v1/subscriptions", "subscribed", count > 0, "订阅", "已订阅", "", "btn btn-secondary")
+	return strings.Replace(control, `</form>`, field("kind", kind)+field("object_id", object)+`</form>`, 1)
 }
 func (app *App) setSubscription(w http.ResponseWriter, r *http.Request) {
 	i := app.contentIdentity(w, r)
@@ -100,6 +97,10 @@ func (app *App) setSubscription(w http.ResponseWriter, r *http.Request) {
 	err = app.applyOperation(operation{EventID: randomID(), ObjectID: object, OwnerID: i.ID, TargetKind: kind, Notify: r.FormValue("notifications") == "true", Action: action, CreatedAt: time.Now().Unix()})
 	if err != nil {
 		fail(w, err)
+		return
+	}
+	if r.Header.Get("Accept") == "application/json" {
+		respond(w, 200, map[string]any{"subscribed": desired == "true"})
 		return
 	}
 	http.Redirect(w, r, "/my/subscriptions", 303)

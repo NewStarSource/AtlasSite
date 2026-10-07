@@ -80,7 +80,7 @@ func (app *App) communityPage(w http.ResponseWriter, r *http.Request) {
 			fail(w, e)
 			return
 		}
-		body += `<div class="section-heading"><h2 class="sr-only">最近讨论</h2></div><div class="feed-list">` + app.postCards(posts, viewer) + `</div>`
+		body += `<div class="section-heading"><h2 class="sr-only">最近讨论</h2></div><div class="feed-list">` + app.postCards(posts, viewer, r) + `</div>`
 	} else if view == "about" {
 		body += `<section class="panel prose"><h2>关于这个社群</h2><p>` + esc(c.Description) + `</p><h3>接触方式</h3><p>` + esc(c.ContactMethod) + `</p><h3>来源与许可</h3><p>` + verified + ` · ` + esc(c.SourceLicense) + `</p>`
 		if safeSource(c.SourceURL) {
@@ -182,7 +182,7 @@ func (app *App) topicPage(w http.ResponseWriter, r *http.Request) {
 	if i != nil {
 		viewer = i.ID
 	}
-	app.renderPage(w, r, name, "topic", `<nav class="breadcrumb"><a href="/c/`+pathID(c.Slug)+`">`+esc(c.Name)+`</a><span>/</span><span>主题讨论</span></nav>`+pageHeading("TOPIC", name, description, "")+`<section class="panel">`+app.subscriptionControl(r, "topic", id)+`</section><div class="feed-list">`+app.postCards(selected, viewer)+`</div>`)
+	app.renderPage(w, r, name, "topic", `<nav class="breadcrumb"><a href="/c/`+pathID(c.Slug)+`">`+esc(c.Name)+`</a><span>/</span><span>主题讨论</span></nav>`+pageHeading("TOPIC", name, description, "")+`<section class="panel">`+app.subscriptionControl(r, "topic", id)+`</section><div class="feed-list">`+app.postCards(selected, viewer, r)+`</div>`)
 }
 func (app *App) oldCommunityPath(w http.ResponseWriter, r *http.Request) {
 	var slug string

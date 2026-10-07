@@ -5,6 +5,31 @@ document.addEventListener("DOMContentLoaded", () => {
   const reply = document.querySelector("#reply-composer form");
   const errorMessages = {VERSION_CONFLICT:"内容已在另一处更新。请保留文字，重新打开后再修改。", CONFLICT:"内容已在另一处更新。请保留文字，重新打开后再修改。", INPUT_INVALID:"请检查必填项、正文长度、图片数量与许可。", REAUTH_REQUIRED:"请先到登录与安全页面重新确认身份。", READ_ONLY:"当前暂停投稿，请保留文字，稍后重试。", IDENTITY_UNAVAILABLE:"账户服务暂时不可用，请保留文字，稍后重试。", CSRF_INVALID:"页面验证已过期，请保留文字后刷新页面。"};
   const message = (data, code) => data.message || errorMessages[data.code] || (code === 409 ? "内容已更新，请保留文字后重新打开。" : "操作未完成，请保留文字后重试。");
+  document.querySelectorAll("[data-state-form]").forEach(form => {
+    let pending = false;
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      if (pending) return;
+      const name = form.dataset.stateName, input = form.elements[name];
+      const button = form.querySelector("button"), feedback = form.querySelector("[data-state-status]");
+      const data = new URLSearchParams(new FormData(form));
+      pending = true; button.disabled = true; form.setAttribute("aria-busy", "true"); feedback.textContent = "";
+      try {
+        const response = await fetch(form.action, {method:"POST", body:data, headers:{Accept:"application/json"}});
+        const result = await response.json();
+        if (!response.ok) throw new Error(message(result, response.status));
+        if (typeof result[name] !== "boolean") throw new Error("状态未确认，请刷新后重试。");
+        const active = result[name], label = active ? button.dataset.labelOn : button.dataset.labelOff;
+        input.value = String(!active);
+        button.setAttribute("aria-pressed", String(active)); button.setAttribute("aria-label", label); button.title = label;
+        const text = button.querySelector("[data-action-label]"); if (text) text.textContent = label;
+        const count = button.querySelector("[data-action-count]");
+        if (count && Number.isInteger(result.count)) count.textContent = String(result.count);
+        feedback.textContent = active ? label : "已取消";
+      } catch (error) { feedback.textContent = error.name === "TypeError" ? "连接中断，请稍后重试。" : error.name === "SyntaxError" ? "状态未确认，请刷新后重试。" : error.message; }
+      finally { pending = false; button.disabled = false; form.removeAttribute("aria-busy"); }
+    });
+  });
   let dirty = false, busy = false, revision = 0, uploading = false, submitting = false;
   const touch = () => { dirty = true; revision++; };
   if (editor) {

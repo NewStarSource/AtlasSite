@@ -33,6 +33,19 @@ func avatarInitial(name string) string {
 	return ""
 }
 
+// The hidden value always expresses the next desired state, including without JavaScript.
+func stateForm(r *http.Request, action, name string, active bool, offLabel, onLabel, icon, class string) string {
+	label := offLabel
+	if active {
+		label = onLabel
+	}
+	content := `<span data-action-label>` + esc(label) + `</span>`
+	if icon != "" {
+		content = icon
+	}
+	return strings.Replace(formStart(r, action), `<form `, `<form class="state-form" data-state-form data-state-name="`+esc(name)+`" `, 1) + field(name, strconv.FormatBool(!active)) + `<button type="submit" class="` + esc(class) + `" data-label-off="` + esc(offLabel) + `" data-label-on="` + esc(onLabel) + `" aria-pressed="` + strconv.FormatBool(active) + `" aria-label="` + esc(label) + `" title="` + esc(label) + `">` + content + `</button><span class="state-feedback" role="status" data-state-status></span></form>`
+}
+
 func settingsNav(path string) string {
 	links := [][2]string{{"/my", "我的"}, {"/settings", "隐私"}, {"/settings/blocks", "屏蔽"}, {"/my/export", "导出"}, {"/security", "安全"}, {"/settings/account", "注销与恢复"}}
 	body := `<nav class="settings-tabs" aria-label="个人设置">`
@@ -97,7 +110,7 @@ func (app *App) myPage(w http.ResponseWriter, r *http.Request) {
 		}
 		body += `<a class="link-card" href="` + link[0] + `"><strong>` + link[1] + `</strong><span class="card-number">` + strconv.Itoa(count) + `</span></a>`
 	}
-	body += `</div><nav class="settings-tabs"><a href="/settings">设置</a><a href="/security">安全</a><a href="/my/export">导出</a></nav><div class="section-heading"><h2>我的内容</h2><a href="/new">发布</a></div><div class="feed">` + app.postCards(posts, i.ID) + `</div>`
+	body += `</div><nav class="settings-tabs"><a href="/settings">设置</a><a href="/security">安全</a><a href="/my/export">导出</a></nav><div class="section-heading"><h2>我的内容</h2><a href="/new">发布</a></div><div class="feed">` + app.postCards(posts, i.ID, r) + `</div>`
 	app.renderPage(w, r, "我的", "my", body)
 }
 

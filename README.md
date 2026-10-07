@@ -9,6 +9,8 @@
 
 搜索框与图标按钮修正、账户简介 Markdown 编辑和跨服务展示见 [搜索与账户简介 Markdown](docs/UI_SEARCH_PROFILE_2026-10-06.md)。
 
+账户视觉、内容列表和操作反馈的后续改进及验证状态见 [界面与常用操作完善](docs/UI_POLISH_2026-10-07.md)。
+
 一次执行两个仓库的 Go 测试、vet、漏洞扫描、构建及原始 HTTP 联调：
 
 ```powershell

@@ -140,11 +140,11 @@ func (app *App) homePage(w http.ResponseWriter, r *http.Request) {
 	} else {
 		body += `<div class="composer"><p>分享你的想法、创作或观察…</p><div class="composer-toolbar"><a class="btn" href="/login">登录后发布</a></div></div>`
 	}
-	body += `<div class="feed" role="feed">` + app.postCards(posts, viewer) + `</div>`
+	body += `<div class="feed" role="feed">` + app.postCards(posts, viewer, r) + `</div>`
 	app.renderPage(w, r, "最新发布", "home", body)
 }
 
-func (app *App) postCards(posts []Post, viewer string) string {
+func (app *App) postCards(posts []Post, viewer string, r *http.Request) string {
 	blockedAuthors := map[string]bool{}
 	if viewer != "" {
 		rows, err := app.db.Query("SELECT CASE WHEN owner_id=? THEN target_id ELSE owner_id END FROM blocks WHERE owner_id=? OR target_id=?", viewer, viewer, viewer)
@@ -158,16 +158,46 @@ func (app *App) postCards(posts []Post, viewer string) string {
 		}
 		rows.Close()
 	}
+	bookmarks := map[string]bool{}
+	if viewer != "" && len(posts) > 0 {
+		args := []any{viewer}
+		for _, p := range posts {
+			args = append(args, p.ID)
+		}
+		rows, err := app.db.Query("SELECT post_id FROM post_bookmarks WHERE identity_id=? AND post_id IN ("+strings.TrimSuffix(strings.Repeat("?,", len(posts)), ",")+")", args...)
+		if err != nil {
+			return `<p>内容暂时不可用。</p>`
+		}
+		for rows.Next() {
+			var id string
+			if rows.Scan(&id) != nil {
+				rows.Close()
+				return `<p>内容暂时不可用。</p>`
+			}
+			bookmarks[id] = true
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			return `<p>内容暂时不可用。</p>`
+		}
+	}
 	var b strings.Builder
 	for _, p := range posts {
 		if blockedAuthors[p.AuthorID] || p.Status != "published" {
 			continue
 		}
-		b.WriteString(`<article class="post"><header class="post-header">` + publicAuthor(p))
+		b.WriteString(`<article class="post"><header class="post-header"><span class="avatar avatar-small" aria-hidden="true">` + esc(avatarInitial(p.AuthorName)) + `</span><span class="post-author">` + publicAuthor(p) + `</span>`)
 		if p.CommunityID != "" {
 			b.WriteString(`<span class="post-meta">发布于</span><a class="post-community" href="/c/` + pathID(p.CommunitySlug) + `">` + esc(p.CommunityName) + `</a>`)
 		}
-		b.WriteString(`<span class="post-meta">· ` + formatTime(p.CreatedAt) + `</span></header><h2 class="post-title"><a href="/p/` + pathID(p.ID) + `">` + esc(p.Title) + `</a></h2><p class="post-content">` + esc(markdownExcerpt(p.Content, 120)) + `</p><div class="post-actions"><a class="action-btn" aria-label="查看回复" href="/p/` + pathID(p.ID) + `#reply-composer">` + uiIcon("reply") + `<span>` + strconv.Itoa(p.ReplyCount) + `</span></a><a class="action-btn" aria-label="查看收藏与内容" href="/p/` + pathID(p.ID) + `">` + uiIcon("bookmark") + `<span>` + strconv.Itoa(p.BookmarkCount) + `</span></a><a class="action-btn" aria-label="打开内容" href="/p/` + pathID(p.ID) + `">` + uiIcon("more") + `</a></div></article>`)
+		b.WriteString(`<time class="post-meta post-time" datetime="` + p.CreatedAt.UTC().Format(time.RFC3339) + `" title="` + esc(p.CreatedAt.Format("2006-01-02 15:04:05 -07:00")) + `">` + formatTime(p.CreatedAt) + `</time></header><h2 class="post-title"><a href="/p/` + pathID(p.ID) + `">` + esc(p.Title) + `</a></h2><p class="post-content">` + esc(markdownExcerpt(p.Content, 180)) + `</p><div class="post-actions"><a class="action-btn" aria-label="查看回复" href="/p/` + pathID(p.ID) + `#reply-composer">` + uiIcon("reply") + `<span>` + strconv.Itoa(p.ReplyCount) + `</span></a>`)
+		if viewer != "" {
+			b.WriteString(stateForm(r, "/api/v1/p/"+pathID(p.ID)+"/bookmark", "bookmarked", bookmarks[p.ID], "收藏", "已收藏", uiIcon("bookmark")+`<span data-action-count>`+strconv.Itoa(p.BookmarkCount)+`</span>`, "action-btn"))
+		} else {
+			b.WriteString(`<a class="action-btn" aria-label="登录后收藏" title="登录后收藏" href="/login">` + uiIcon("bookmark") + `<span>` + strconv.Itoa(p.BookmarkCount) + `</span></a>`)
+		}
+		b.WriteString(`<a class="action-btn" aria-label="打开内容" href="/p/` + pathID(p.ID) + `">` + uiIcon("more") + `</a></div></article>`)
 	}
 	if b.Len() == 0 {
 		return emptyState("这里还没有可显示的内容", "发布一条动态，或者先去发现感兴趣的社群。", "/discover", "发现社群")

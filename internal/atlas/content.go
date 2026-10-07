@@ -142,13 +142,9 @@ func (app *App) postPage(w http.ResponseWriter, r *http.Request) {
 	content := breadcrumb + `<article class="post-article"><div class="post-meta">` + publicAuthor(*p) + `<span>·</span><time>` + formatTime(p.CreatedAt) + `</time></div><h1 class="post-title">` + esc(p.Title) + `</h1><div class="post-content prose">` + renderMarkdown(p.Content) + `</div><div class="post-license">内容许可 ` + esc(licenseLabel(license)) + ` · 最后修改 ` + formatTime(p.UpdatedAt) + `</div></article>`
 	if i != nil {
 		marked, _ := app.isBookmarked(i.ID, id)
-		label := "收藏"
-		if marked {
-			label = "取消收藏"
-		}
 		var liked int
 		app.db.QueryRow("SELECT count(*) FROM post_likes WHERE user_id=? AND post_id=?", i.ID, id).Scan(&liked)
-		content += `<div class="action-row">` + formStart(r, "/api/v1/p/"+pathID(id)+"/bookmark") + field("bookmarked", fmt.Sprint(!marked)) + `<button>` + label + `</button></form>` + formStart(r, "/api/v1/p/"+pathID(id)+"/like") + field("liked", fmt.Sprint(liked == 0)) + `<button>` + map[bool]string{true: "取消赞", false: "赞"}[liked > 0] + `</button></form>`
+		content += `<div class="action-row">` + stateForm(r, "/api/v1/p/"+pathID(id)+"/bookmark", "bookmarked", marked, "收藏", "已收藏", "", "btn btn-secondary") + stateForm(r, "/api/v1/p/"+pathID(id)+"/like", "liked", liked > 0, "赞", "已赞", "", "btn btn-secondary")
 		if i.ID == p.AuthorID {
 			content += `<a class="btn" href="/p/` + pathID(id) + `/edit">编辑动态</a>`
 		}

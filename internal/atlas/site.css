@@ -2579,6 +2579,28 @@ td,th{padding:12px;text-align:left;border-bottom:1px solid var(--border-subtle);
  .site-footer{margin-top:24px}
 }
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* Shared feed rhythm and quiet, in-place action feedback. */
+.feed .post,.feed-list .post,.page-search .post{padding:28px 0}
+.post:hover{padding-left:0;padding-right:0;margin:0;border-radius:0;background:transparent}
+.post-header{align-items:center;gap:8px;margin-bottom:12px;font-size:var(--text-sm)}
+.post-header .avatar-small{width:28px;height:28px;font-size:12px;margin-right:2px}
+.post-header .post-author{font-weight:550;min-width:0;overflow-wrap:anywhere}
+.post-header .post-time{margin-left:auto;white-space:nowrap;font-size:12px}
+.post .post-title{font-size:19px;line-height:1.5;letter-spacing:-.015em;margin-bottom:8px;overflow-wrap:anywhere}
+.post .post-content{font-size:15px;line-height:1.8;margin-bottom:16px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.post .post-actions{gap:20px;align-items:flex-start}
+.post-actions .action-btn{min-height:36px;min-width:36px;padding:6px;border-radius:6px;margin:0;text-decoration:none;transform:none}
+.state-form{position:relative;display:inline-flex;align-items:center;gap:8px;margin:0}
+.state-form button[aria-pressed=true]{color:var(--text-primary);background:var(--bg-secondary)}
+.state-form .action-btn[aria-pressed=true] svg{fill:currentColor}
+.state-form button:disabled{opacity:.5;cursor:wait}
+.state-feedback{font-size:12px;color:var(--text-secondary);max-width:240px;overflow-wrap:anywhere}
+.state-feedback:empty{display:none}
+.post-actions .state-form{flex-wrap:wrap;max-width:65%}
+.post-actions .state-feedback{flex-basis:100%}
+.state-form button:focus-visible,.post-actions a:focus-visible{outline:2px solid var(--accent-primary);outline-offset:3px}
+@media(max-width:768px){.post-header .post-time{margin-left:0}.post-header .post-community{max-width:100%;overflow-wrap:anywhere}.post .post-title{font-size:18px}.feed .post,.feed-list .post,.page-search .post{padding:24px 0}}
 @media(min-width:1024px){.page-editor .editor-modes{display:none}}
 
 .page-search .search-header{display:flex;align-items:center;gap:16px}.page-search .search-input-container{flex:1;min-width:0}.page-search .search-input{margin:0}.page-search .filter-group{margin-bottom:24px}.page-search .filter-btn{display:inline-flex;text-decoration:none}.page-notifications .notification-actions{display:flex;gap:20px}.page-notifications .notification-link{border:0;background:none;color:var(--text-tertiary);font-size:var(--text-sm)}.page-notifications .notification-header{gap:16px}

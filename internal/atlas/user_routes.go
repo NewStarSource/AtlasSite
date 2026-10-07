@@ -96,7 +96,7 @@ func (app *App) registerUserRoutes(router *chi.Mux) {
 		}
 		body += `</nav>`
 		if tab == "posts" {
-			body += `<div class="feed">` + app.postCards(posts, viewer) + `</div>`
+			body += `<div class="feed">` + app.postCards(posts, viewer, r) + `</div>`
 		} else {
 			shown := 0
 			for _, reply := range replies {
@@ -154,7 +154,7 @@ func (app *App) registerUserRoutes(router *chi.Mux) {
 			fail(w, err)
 			return
 		}
-		app.renderPage(w, r, "我的收藏", "bookmarks", pageHeading("BOOKMARKS", "我的收藏", "", `<a class="btn" href="/">浏览动态</a>`)+`<div class="feed-list">`+app.postCards(posts, i.ID)+`</div>`)
+		app.renderPage(w, r, "我的收藏", "bookmarks", pageHeading("BOOKMARKS", "我的收藏", "", `<a class="btn" href="/">浏览动态</a>`)+`<div class="feed-list">`+app.postCards(posts, i.ID, r)+`</div>`)
 	})
 	router.Post("/api/v1/p/{id}/bookmark", func(w http.ResponseWriter, r *http.Request) { app.setInteraction(w, r, "bookmark") })
 	router.Post("/api/v1/p/{id}/like", func(w http.ResponseWriter, r *http.Request) { app.setInteraction(w, r, "like") })
@@ -197,7 +197,16 @@ func (app *App) setInteraction(w http.ResponseWriter, r *http.Request, kind stri
 		return
 	}
 	if r.Header.Get("Accept") == "application/json" {
-		respond(w, 200, map[string]any{name: v == "true"})
+		result := map[string]any{name: v == "true"}
+		if kind == "bookmark" {
+			var count int
+			if err := app.db.QueryRow("SELECT count(*) FROM post_bookmarks WHERE post_id=?", id).Scan(&count); err != nil {
+				fail(w, err)
+				return
+			}
+			result["count"] = count
+		}
+		respond(w, 200, result)
 		return
 	}
 	http.Redirect(w, r, "/p/"+pathID(id), 303)
@@ -244,7 +253,7 @@ func (app *App) searchPage(w http.ResponseWriter, r *http.Request) {
 				fail(w, err)
 				return
 			}
-			body += `<h2>动态</h2>` + app.postCards(posts, viewer)
+			body += `<h2>动态</h2>` + app.postCards(posts, viewer, r)
 		}
 		if kind == "" || kind == "topic" {
 			rows, err := app.db.Query("SELECT t.name,c.slug,t.slug FROM topics t JOIN communities c ON c.id=t.community_id WHERE t.status='active' AND c.status IN ('active','uncategorized') AND (t.name LIKE ? OR t.description LIKE ?) ORDER BY t.name,t.id LIMIT 50", pattern, pattern)
