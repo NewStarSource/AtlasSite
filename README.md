@@ -21,7 +21,7 @@ pwsh -File scripts/check_core.ps1
 
 ## 启动
 
-需要 Go 1.26.6 或更新版本（本次验证 Go 1.27.1）。在本目录执行：
+需要 Go 1.26.9 或更新版本；`go.mod` 推荐工具链为 Go 1.27.2，CI 使用相同版本。Go 1.27 分支应使用 1.27.2 或更新补丁，默认 `GOTOOLCHAIN=auto` 会按模块配置选择工具链。在本目录执行：
 
 ```powershell
 go mod download
