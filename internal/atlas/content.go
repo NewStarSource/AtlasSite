@@ -144,7 +144,7 @@ func (app *App) postPage(w http.ResponseWriter, r *http.Request) {
 		marked, _ := app.isBookmarked(i.ID, id)
 		var liked int
 		app.db.QueryRow("SELECT count(*) FROM post_likes WHERE user_id=? AND post_id=?", i.ID, id).Scan(&liked)
-		content += `<div class="action-row">` + stateForm(r, "/api/v1/p/"+pathID(id)+"/bookmark", "bookmarked", marked, "收藏", "已收藏", "", "btn btn-secondary") + stateForm(r, "/api/v1/p/"+pathID(id)+"/like", "liked", liked > 0, "赞", "已赞", "", "btn btn-secondary")
+		content += `<div class="action-row">` + stateForm(r, "/api/v1/p/"+pathID(id)+"/bookmark", "bookmarked", marked, "收藏", "已收藏", uiIcon("bookmark"), "btn btn-secondary icon-btn") + stateForm(r, "/api/v1/p/"+pathID(id)+"/like", "liked", liked > 0, "赞", "已赞", uiIcon("like"), "btn btn-secondary icon-btn")
 		if i.ID == p.AuthorID {
 			content += `<a class="btn" href="/p/` + pathID(id) + `/edit">编辑动态</a>`
 		}
