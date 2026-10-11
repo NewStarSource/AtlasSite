@@ -2619,6 +2619,7 @@ td,th{padding:12px;text-align:left;border-bottom:1px solid var(--border-subtle);
 .overlay-links{display:grid;gap:4px}
 .overlay-links a{display:block;padding:12px;border-radius:var(--radius-md);color:var(--text-primary);text-decoration:none;font-size:var(--text-sm)}
 .overlay-links a:hover{background:var(--bg-secondary)}
+.overlay-note{padding:12px;font-size:var(--text-xs);color:var(--text-tertiary)}
 .overlay-section{padding-top:16px;margin-top:16px;border-top:1px solid var(--border-subtle)}
 .overlay-section form>button{padding:10px 18px;border:1px solid var(--border-default);border-radius:var(--radius-full);background:var(--bg-secondary);color:var(--text-primary);font-size:var(--text-sm)}
 .overlay-section form>button.btn-danger{color:var(--state-error)}

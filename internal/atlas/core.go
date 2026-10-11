@@ -137,7 +137,7 @@ func (app *App) homePage(w http.ResponseWriter, r *http.Request) {
 	}
 	i, _, _ := app.currentIdentity(r)
 	viewer := ""
-	body := `<h1 class="sr-only">最新发布</h1><header class="feed-header"><nav class="feed-tabs" aria-label="内容导航"><a class="tab-btn active" href="/" aria-current="page">最新发布</a><a class="tab-btn" href="/discover">发现社群</a><a class="tab-btn" href="/my/bookmarks">收藏</a></nav></header>`
+	body := `<h1 class="sr-only">最新发布</h1>`
 	if i != nil {
 		viewer = i.ID
 		body += strings.Replace(formStart(r, "/new"), `<form `, `<form class="composer" `, 1) + `<label for="composer-input" class="sr-only">发布内容</label><textarea id="composer-input" class="composer-textarea" name="content" maxlength="50000" placeholder="分享你的想法、创作或观察…" aria-label="发布内容"></textarea><div class="composer-toolbar"><div class="composer-meta"><a class="meta-tag" href="/new#post-community">＋ 关联社群</a><a class="meta-tag" href="/new#post-image">＋ 上传图片</a><a class="meta-tag" href="/my/drafts">草稿</a></div><button class="btn" type="submit">继续编辑</button></div></form>`
