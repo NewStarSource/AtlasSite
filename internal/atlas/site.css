@@ -2634,3 +2634,26 @@ td,th{padding:12px;text-align:left;border-bottom:1px solid var(--border-subtle);
 @media(min-width:1024px){.page-editor .editor-modes{display:none}}
 
 .page-search .search-header{display:flex;align-items:center;gap:16px}.page-search .search-input-container{flex:1;min-width:0}.page-search .search-input{margin:0}.page-search .filter-group{margin-bottom:24px}.page-search .filter-btn{display:inline-flex;text-decoration:none}.page-notifications .notification-actions{display:flex;gap:20px}.page-notifications .notification-link{border:0;background:none;color:var(--text-tertiary);font-size:var(--text-sm)}.page-notifications .notification-header{gap:16px}
+/* Management follows the shared monochrome reading layout. */
+.admin-heading,.admin-row-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.admin-heading{margin-bottom:24px}.admin-heading h1{font-size:var(--text-2xl);margin:0}.admin-heading p{margin:4px 0 0;font-size:var(--text-sm)}
+.admin-tabs{margin-bottom:24px;overflow:auto;white-space:nowrap}
+.admin-search{position:relative;margin-bottom:16px}.admin-search>input[type=search]{margin:0;padding-right:52px;min-height:48px}.admin-search>.tool-icon{position:absolute;right:2px;top:2px;margin:0}
+.admin-list{border-top:1px solid var(--border-subtle)}
+.admin-community-row,.admin-row{padding:24px 0;border-bottom:1px solid var(--border-subtle);overflow-wrap:anywhere}
+.admin-community-row{display:flex;align-items:center;justify-content:space-between;gap:20px;color:var(--text-primary);text-decoration:none}
+.admin-community-row:hover{background:var(--bg-hover);text-decoration:none}
+.admin-row h2,.admin-community-row h2,.admin-editor h2{font-size:var(--text-lg);margin:0 0 6px;line-height:1.5}
+.admin-row p,.admin-community-row p{font-size:var(--text-sm);margin:6px 0;color:var(--text-secondary)}
+.admin-community-row small,.admin-row small{font-size:var(--text-xs);color:var(--text-tertiary)}
+.admin-badge{display:inline-block;flex-shrink:0;background:var(--bg-secondary);border-radius:var(--radius-sm);padding:4px 8px;font-size:var(--text-xs);color:var(--text-secondary)}
+.admin-empty{padding:48px 0;text-align:center;color:var(--text-tertiary)}
+.admin-edit{margin-top:12px}.admin-edit summary,.admin-add summary{font-size:var(--text-sm);cursor:pointer;color:var(--text-secondary);padding:8px 0}
+.admin-add{margin-top:24px;padding:20px;background:var(--bg-secondary);border-radius:var(--radius-md)}
+.admin-add>summary{font-weight:600;color:var(--text-primary)}
+.page-admin label>input,.page-admin label>textarea,.page-admin label>select{margin-top:8px;font-weight:400}
+.page-admin .check-row{display:flex;align-items:center;font-weight:400;gap:4px}
+.page-admin .check-row input{margin-top:0}.page-admin .btn{min-height:44px;display:inline-flex;align-items:center;justify-content:center;line-height:20px}
+.admin-edit form+form{border-top:1px solid var(--border-subtle);margin-top:24px;padding-top:8px}.admin-editor .action-row{margin-top:24px}.admin-editor .action-row>button{margin:0}
+.admin-change{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:12px}.admin-change h3{font-size:var(--text-sm)}.admin-change dl{font-size:var(--text-sm)}.admin-change dt{color:var(--text-tertiary);margin-top:12px}.admin-change dd{margin:4px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:600px){.admin-heading{align-items:flex-start}.admin-heading>.btn{font-size:var(--text-xs);padding:8px 12px}.admin-community-row{gap:12px}.admin-add{padding:16px}.admin-change{grid-template-columns:1fr}}

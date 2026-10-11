@@ -22,7 +22,7 @@ func seedCoreCommunity(t *testing.T, app *App) (string, string) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := app.db.Exec("INSERT INTO communities VALUES(?,'test-community','合成社群','社群说明','sub','active','','javascript:alert(1)','synthetic',0,?,?)", c, now, now); err != nil {
+	if _, err := app.db.Exec("INSERT INTO communities VALUES(?,'test-community','合成社群','社群说明','sub','active','','javascript:alert(1)','synthetic',0,?,?,1)", c, now, now); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := app.db.Exec("INSERT INTO topics VALUES(?,?,'topic','专题','说明',1,'active',?)", topic, c, now); err != nil {

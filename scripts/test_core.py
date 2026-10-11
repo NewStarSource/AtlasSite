@@ -1,5 +1,6 @@
 """Real dual-service HTTP tests. No graphical browser, real users, or external mail."""
 import argparse
+from datetime import date, timedelta
 import json
 import os
 from pathlib import Path
@@ -33,6 +34,36 @@ def authorize(client, account, atlas, username, password, start=None):
     target = next(link for link in parsed.links if "/authorize/callback?" in link)
     callback = expect(client.request(urllib.parse.urljoin(account, target)), 302, "issue code")[1]["Location"]
     expect(client.request(callback), 303, "complete login")
+
+
+def check_management(client, account, atlas, account_bin, atlas_bin, account_dir, atlas_dir, owner):
+    staff, username, password = Browser(), "managementrep", "synthetic representative password 123"
+    generated = subprocess.run([str(account_bin), "generate-invite"], cwd=account_dir, check=True, capture_output=True, text=True, encoding="utf-8")
+    invite = (generated.stdout or generated.stderr).strip().split("邀请码：")[-1].strip()
+    expect(staff.request(account + "/api/v1/auth/register", {"username": username, "password": password, "invite_code": invite}, True), 201, "register representative")
+    authorize(staff, account, atlas, username, password)
+    staff_id = json.loads(staff.request(atlas + "/api/v1/session")[2])["user"]["id"]
+    expect(staff.request(atlas + "/admin"), 403, "ordinary user denied management")
+    subprocess.run([str(atlas_bin), "seed-communities"], cwd=atlas_dir, check=True, capture_output=True)
+    grant = {"user_id": staff_id, "community_id": "pixel-game-dev", "version": "0", "authority": "合成临时授权记录", "expires": (date.today() + timedelta(days=60)).isoformat()}
+    expect(form_post(client, atlas, "/admin/representatives", grant), 303, "register representative")
+    for path in ("/admin", "/admin/representatives", "/admin/log", "/admin/communities/pixel-game-dev"):
+        expect(staff.request(atlas + path), 200, "representative page")
+    expect(staff.request(atlas + "/admin/team"), 403, "representative cannot read team")
+    authorize(staff, account, atlas, username, password, form_post(staff, atlas, "/auth/reauthenticate", {}))
+    edit = {"version": "1", "name": "合成管理社群", "description": "真实表单保存", "contact": "合成联系说明"}
+    expect(staff.request(atlas + "/admin/communities/pixel-game-dev", edit), 403, "management csrf required")
+    expect(form_post(staff, atlas, "/admin/communities/pixel-game-dev", edit), 303, "representative saves community")
+    assert "真实表单保存" in expect(staff.request(atlas + "/c/pixel-game-dev"), 200, "public community updated")[2]
+    expect(form_post(staff, atlas, "/admin/communities/pixel-game-dev", edit), 409, "old management version rejected")
+    expect(form_post(client, atlas, "/admin/representatives/pixel-game-dev/remove", {"version": "1"}), 303, "revoke representative")
+    expect(staff.request(atlas + "/admin"), 403, "revoked representative denied")
+    grant.update(role="member", version="0")
+    expect(form_post(client, atlas, "/admin/team", grant), 303, "add team member")
+    expect(staff.request(atlas + "/admin/team"), 200, "team member can view team")
+    expect(form_post(staff, atlas, "/admin/team", dict(grant, role="admin")), 403, "team member cannot grant admin")
+    expect(form_post(client, atlas, "/admin/team/" + owner + "/remove", {"version": "1"}), 409, "last admin retained")
+    print("PASS management with real OIDC sessions: representative scope/save/revoke, team roles, CSRF and stale versions")
 
 
 def main():
@@ -83,8 +114,13 @@ def main():
             expect(form_post(client, atlas, "/api/v1/cases", {"kind": "report", "request_id": __import__("uuid").uuid4().hex, "detail": "合成举报说明"}), 200, "case received")
             print("PASS publish/reply/bookmark/search/case flow with real CSRF and login identity")
 
+            expect(client.request(atlas + "/admin"), 403, "ordinary identity has no admin role")
+            subprocess.run([str(atlas_bin), "admin-bootstrap", owner], cwd=atlas_dir, check=True, capture_output=True)
+            expect(client.request(atlas + "/admin"), 200, "bootstrapped management page")
+            expect(form_post(client, atlas, "/admin/team", {"user_id": owner}), 403, "management requires fresh reauthentication")
             start = form_post(client, atlas, "/auth/reauthenticate", {})
             authorize(client, account, atlas, username, password, start)
+            check_management(client, account, atlas, account_bin, atlas_bin, account_dir, atlas_dir, owner)
             expect(form_post(client, atlas, "/api/v1/me/deactivate", {"confirm": "deactivate", "retain_ids": kept}), 303, "cross-service deactivate")
             assert not json.loads(client.request(atlas + "/api/v1/session")[2])["authenticated"]
             anonymous = Browser()

@@ -590,7 +590,7 @@ func (app *App) Backup() (BackupManifest, error) {
 	}
 	manifest.CreatedAt = time.Now().Unix()
 	manifest.ScrubbedSequence = manifest.JournalSequence
-	manifest.Schema = 6
+	manifest.Schema = currentSchema
 	manifest.Tier = "hourly"
 	sum := sha256.Sum256(encrypted)
 	manifest.Hash = hex.EncodeToString(sum[:])
@@ -645,7 +645,7 @@ func RestoreBackup(config Config, archive, destination string) error {
 		return err
 	}
 	var manifest BackupManifest
-	if json.Unmarshal(meta, &manifest) != nil || manifest.Schema != 6 {
+	if json.Unmarshal(meta, &manifest) != nil || (manifest.Schema != 6 && manifest.Schema != currentSchema) {
 		return errors.New("invalid backup manifest")
 	}
 	sum := sha256.Sum256(raw)
@@ -699,6 +699,10 @@ func RestoreBackup(config Config, archive, destination string) error {
 		return err
 	}
 	defer app.Close()
+	// A snapshot must not resurrect a revoked grant. Re-authorize after recovery.
+	if _, err = app.db.Exec("DELETE FROM team_members; DELETE FROM community_representatives;"); err != nil {
+		return err
+	}
 	records, err := app.readJournal()
 	if err != nil {
 		return err

@@ -35,6 +35,7 @@ type Identity struct {
 	AccountID         string `json:"-"`
 	AuthTime          int64  `json:"-"`
 	ReauthenticatedAt int64  `json:"-"`
+	CanManage         bool   `json:"-"`
 }
 type tokenClaims struct {
 	SubjectID string `json:"subject_id"`
@@ -586,6 +587,11 @@ func (app *App) currentIdentity(request *http.Request) (*Identity, bool, error) 
 			return nil, false, err
 		}
 	}
+	access, err := managementAccess(app.db, identity.ID)
+	if err != nil {
+		return nil, degraded, err
+	}
+	identity.CanManage = access != ""
 	return identity, degraded, nil
 }
 func (app *App) Worker(ctx context.Context) {

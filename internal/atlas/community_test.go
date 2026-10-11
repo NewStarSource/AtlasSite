@@ -29,17 +29,17 @@ func TestCommunityRoutes(t *testing.T) {
 	tx.Exec("INSERT INTO domains VALUES('test-domain','测试领域','测试用',1,?)", now)
 	tx.Exec("INSERT INTO directions VALUES('test-dir','test-domain','测试方向','测试用',1,?)", now)
 	tx.Exec("INSERT INTO subcategories VALUES('test-sub','test-dir','测试子类','测试用',1,?)", now)
-	tx.Exec(`INSERT INTO communities VALUES('comm1','test-comm','测试社群','社群描述','test-sub','active','','','CC BY',1,?,?)`, now, now)
+	tx.Exec(`INSERT INTO communities VALUES('comm1','test-comm','测试社群','社群描述','test-sub','active','','','CC BY',1,?,?,1)`, now, now)
 	tx.Exec("INSERT INTO topics VALUES('topic1','comm1','general','综合讨论','综合主题',1,'active',?)", now)
 	tx.Exec(`INSERT INTO collections VALUES('coll1','comm1','announcement','欢迎','welcome','欢迎语','内容',1,'published',?,?)`, now, now)
 	tx.Commit()
 
 	handler := app.Handler()
 	t.Run("ClassificationAndUncategorizedVisibility", func(t *testing.T) {
-		if _, err := app.db.Exec(`INSERT INTO communities VALUES('uncat','uncat-comm','待分类测试','描述',NULL,'uncategorized','','','synthetic',0,?,?)`, now, now); err != nil {
+		if _, err := app.db.Exec(`INSERT INTO communities VALUES('uncat','uncat-comm','待分类测试','描述',NULL,'uncategorized','','','synthetic',0,?,?,1)`, now, now); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := app.db.Exec(`INSERT INTO communities VALUES('hidden','hidden-comm','隐藏测试','描述',NULL,'pending','','','synthetic',0,?,?)`, now, now); err != nil {
+		if _, err := app.db.Exec(`INSERT INTO communities VALUES('hidden','hidden-comm','隐藏测试','描述',NULL,'pending','','','synthetic',0,?,?,1)`, now, now); err != nil {
 			t.Fatal(err)
 		}
 		for _, route := range []string{"/discover", "/c/test-comm", "/c/uncat-comm", "/c/uncat-comm/about"} {
@@ -111,7 +111,7 @@ func TestCommunityRoutes(t *testing.T) {
 
 	t.Run("InactiveCommunityNotAccessible", func(t *testing.T) {
 		tx, _ := app.db.Begin()
-		tx.Exec(`INSERT INTO communities VALUES('comm2','inactive-comm','未激活','描述','test-sub','pending','','','',0,?,?)`, now, now)
+		tx.Exec(`INSERT INTO communities VALUES('comm2','inactive-comm','未激活','描述','test-sub','pending','','','',0,?,?,1)`, now, now)
 		tx.Commit()
 
 		req := httptest.NewRequest("GET", "http://127.0.0.1:4200/c/inactive-comm", nil)

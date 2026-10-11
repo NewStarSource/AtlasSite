@@ -27,7 +27,7 @@ func (app *App) validBackups() ([]BackupManifest, int) {
 		}
 		raw, err := os.ReadFile(filepath.Join(app.config.BackupDirectory, entry.Name()))
 		var m BackupManifest
-		if err != nil || json.Unmarshal(raw, &m) != nil || filepath.Base(m.Archive) != m.Archive || entry.Name() != m.Archive+".json" || m.Schema != 6 {
+		if err != nil || json.Unmarshal(raw, &m) != nil || filepath.Base(m.Archive) != m.Archive || entry.Name() != m.Archive+".json" || (m.Schema != 6 && m.Schema != currentSchema) {
 			invalid++
 			continue
 		}

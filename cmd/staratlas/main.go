@@ -66,6 +66,12 @@ func main() {
 		args := flag.Args()
 		var result any
 		switch args[0] {
+		case "admin-bootstrap":
+			if len(args) != 2 {
+				logger.Fatal("admin-bootstrap 需要已有星图用户 ID 或唯一化名")
+			}
+			err = app.BootstrapAdmin(args[1])
+			result = map[string]string{"status": "administrator_initialized"}
 		case "backup":
 			result, err = app.Backup()
 		case "diagnose":
