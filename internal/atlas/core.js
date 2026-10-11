@@ -1,5 +1,26 @@
 "use strict";
 document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll("[data-overlay-open]").forEach(trigger => {
+    const overlay = document.getElementById(trigger.dataset.overlayOpen);
+    if (!overlay) return;
+    trigger.addEventListener("click", event => {
+      event.preventDefault();
+      overlay.showModal();
+      trigger.setAttribute("aria-expanded", "true");
+      document.documentElement.classList.add("overlay-open");
+    });
+    overlay.querySelector("[data-overlay-close]")?.addEventListener("click", () => overlay.close());
+    overlay.addEventListener("click", event => {
+      if (event.target !== overlay) return;
+      const bounds = overlay.getBoundingClientRect();
+      if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) overlay.close();
+    });
+    overlay.addEventListener("close", () => {
+      trigger.setAttribute("aria-expanded", "false");
+      document.documentElement.classList.remove("overlay-open");
+      trigger.focus();
+    });
+  });
   const editor = document.querySelector('input[name="draft_id"]')?.form;
   const status = document.querySelector("[data-draft-status]");
   const reply = document.querySelector("#reply-composer form");
@@ -25,7 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const text = button.querySelector("[data-action-label]"); if (text) text.textContent = label;
         const count = button.querySelector("[data-action-count]");
         if (count && Number.isInteger(result.count)) count.textContent = String(result.count);
-        feedback.textContent = active ? label : "已取消";
+        feedback.textContent = name === "bookmarked" || name === "liked" ? "" : active ? label : "已取消";
       } catch (error) { feedback.textContent = error.name === "TypeError" ? "连接中断，请稍后重试。" : error.name === "SyntaxError" ? "状态未确认，请刷新后重试。" : error.message; }
       finally { pending = false; button.disabled = false; form.removeAttribute("aria-busy"); }
     });

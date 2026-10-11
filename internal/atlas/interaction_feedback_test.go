@@ -46,7 +46,7 @@ func TestInteractionJSONFeedbackAndFormFallback(t *testing.T) {
 	bookmark.Set("bookmarked", "true")
 	mustStatus(t, reader.call("POST", "/api/v1/p/"+post+"/bookmark", bookmark, true), 303)
 	page := reader.call("GET", "/", nil, true).Body.String()
-	if !strings.Contains(page, `name="bookmarked" value="false"`) || !strings.Contains(page, `aria-label="已收藏"`) || !strings.Contains(page, "gorilla.csrf.Token") {
+	if !strings.Contains(page, `name="bookmarked" value="false"`) || !strings.Contains(page, `aria-label="取消收藏"`) || !strings.Contains(page, "gorilla.csrf.Token") {
 		t.Fatal("server-rendered bookmark state or form token missing")
 	}
 	subscription := url.Values{"kind": {"community"}, "object_id": {community}, "subscribed": {"true"}}

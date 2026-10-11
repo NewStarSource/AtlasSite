@@ -50,6 +50,33 @@ func TestSettingsSeparationAndPostOwnerControls(t *testing.T) {
 	if strings.Contains(page, `/association"`) || strings.Contains(page, "回复对象 ID") {
 		t.Fatal("foreign author controls or raw parent field visible")
 	}
+	ownerPage := author.call("GET", "/p/"+post, nil, true)
+	mustStatus(t, ownerPage, 200)
+	body := ownerPage.Body.String()
+	moreStart := strings.Index(body, `id="more-overlay"`)
+	association := strings.Index(body, `action="/api/v1/p/`+post+`/association"`)
+	if moreStart < 0 || association < moreStart || strings.Contains(body[:moreStart], "管理社群关联与内容") {
+		t.Fatal("association controls must live inside the author's more overlay")
+	}
+}
+
+func TestSharedPageOverlays(t *testing.T) {
+	app := coreApp(t)
+	for _, route := range []string{"/", "/discover", "/search", "/help", "/missing-page"} {
+		r := httptest.NewRequest("GET", app.config.Origin+route, nil)
+		r.Header.Set("Accept", "text/html")
+		w := httptest.NewRecorder()
+		app.Handler().ServeHTTP(w, r)
+		if w.Code != 200 && !(route == "/missing-page" && w.Code == 404) {
+			t.Fatalf("page %s: %d", route, w.Code)
+		}
+		body := w.Body.String()
+		for _, expected := range []string{`data-overlay-open="search-overlay"`, `data-overlay-open="more-overlay"`, `id="search-overlay"`, `id="more-overlay"`, `name="q"`, `name="type"`, `href="/help"`} {
+			if !strings.Contains(body, expected) {
+				t.Fatalf("%s missing shared overlay control %s", route, expected)
+			}
+		}
+	}
 }
 
 func TestReportContentLinksAndMarkdownExcerpt(t *testing.T) {

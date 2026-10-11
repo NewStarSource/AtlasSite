@@ -101,6 +101,9 @@ func (app *App) postVisible(id, viewer string) bool {
 	return !app.blocked(viewer, owner)
 }
 func (app *App) renderPage(w http.ResponseWriter, r *http.Request, title, page, content string) {
+	app.renderPageWithMore(w, r, title, page, content, "")
+}
+func (app *App) renderPageWithMore(w http.ResponseWriter, r *http.Request, title, page, content, more string) {
 	identity, _, err := app.currentIdentity(r)
 	if err != nil {
 		respond(w, 503, map[string]string{"code": "DEPENDENCY_UNAVAILABLE"})
@@ -111,7 +114,8 @@ func (app *App) renderPage(w http.ResponseWriter, r *http.Request, title, page, 
 		Title, Page string
 		Identity    *Identity
 		Content     template.HTML
-	}{title, page, identity, template.HTML(content)})
+		More        template.HTML
+	}{title, page, identity, template.HTML(content), template.HTML(more)})
 	if err != nil {
 		respond(w, 503, map[string]string{"code": "RENDER_FAILED"})
 		return
@@ -193,7 +197,7 @@ func (app *App) postCards(posts []Post, viewer string, r *http.Request) string {
 		}
 		b.WriteString(`<time class="post-meta post-time" datetime="` + p.CreatedAt.UTC().Format(time.RFC3339) + `" title="` + esc(p.CreatedAt.Format("2006-01-02 15:04:05 -07:00")) + `">` + formatTime(p.CreatedAt) + `</time></header><h2 class="post-title"><a href="/p/` + pathID(p.ID) + `">` + esc(p.Title) + `</a></h2><p class="post-content">` + esc(markdownExcerpt(p.Content, 180)) + `</p><div class="post-actions"><a class="action-btn" aria-label="查看回复" href="/p/` + pathID(p.ID) + `#reply-composer">` + uiIcon("reply") + `<span>` + strconv.Itoa(p.ReplyCount) + `</span></a>`)
 		if viewer != "" {
-			b.WriteString(stateForm(r, "/api/v1/p/"+pathID(p.ID)+"/bookmark", "bookmarked", bookmarks[p.ID], "收藏", "已收藏", uiIcon("bookmark")+`<span data-action-count>`+strconv.Itoa(p.BookmarkCount)+`</span>`, "action-btn"))
+			b.WriteString(stateForm(r, "/api/v1/p/"+pathID(p.ID)+"/bookmark", "bookmarked", bookmarks[p.ID], "收藏", "取消收藏", uiIcon("bookmark")+`<span data-action-count>`+strconv.Itoa(p.BookmarkCount)+`</span>`, "action-btn"))
 		} else {
 			b.WriteString(`<a class="action-btn" aria-label="登录后收藏" title="登录后收藏" href="/login">` + uiIcon("bookmark") + `<span>` + strconv.Itoa(p.BookmarkCount) + `</span></a>`)
 		}

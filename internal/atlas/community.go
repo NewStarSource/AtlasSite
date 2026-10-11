@@ -90,6 +90,7 @@ func (app *App) communityRoutes(router *chi.Mux) {
 			Page     string
 			Identity *Identity
 			Content  template.HTML
+			More     template.HTML
 		}
 
 		var contentBuf strings.Builder

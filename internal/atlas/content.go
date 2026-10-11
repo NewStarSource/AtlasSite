@@ -140,18 +140,19 @@ func (app *App) postPage(w http.ResponseWriter, r *http.Request) {
 	}
 	breadcrumb += `<span>讨论详情</span></nav>`
 	content := breadcrumb + `<article class="post-article"><div class="post-meta">` + publicAuthor(*p) + `<span>·</span><time>` + formatTime(p.CreatedAt) + `</time></div><h1 class="post-title">` + esc(p.Title) + `</h1><div class="post-content prose">` + renderMarkdown(p.Content) + `</div><div class="post-license">内容许可 ` + esc(licenseLabel(license)) + ` · 最后修改 ` + formatTime(p.UpdatedAt) + `</div></article>`
+	more := `<nav class="overlay-links" aria-label="动态操作"><a href="/help/report?object_id=` + pathID(id) + `">举报</a>`
 	if i != nil {
 		marked, _ := app.isBookmarked(i.ID, id)
 		var liked int
 		app.db.QueryRow("SELECT count(*) FROM post_likes WHERE user_id=? AND post_id=?", i.ID, id).Scan(&liked)
-		content += `<div class="action-row">` + stateForm(r, "/api/v1/p/"+pathID(id)+"/bookmark", "bookmarked", marked, "收藏", "已收藏", uiIcon("bookmark"), "btn btn-secondary icon-btn") + stateForm(r, "/api/v1/p/"+pathID(id)+"/like", "liked", liked > 0, "赞", "已赞", uiIcon("like"), "btn btn-secondary icon-btn")
+		content += `<div class="action-row">` + stateForm(r, "/api/v1/p/"+pathID(id)+"/bookmark", "bookmarked", marked, "收藏", "取消收藏", uiIcon("bookmark"), "btn btn-secondary icon-btn") + stateForm(r, "/api/v1/p/"+pathID(id)+"/like", "liked", liked > 0, "点赞", "取消点赞", uiIcon("like"), "btn btn-secondary icon-btn") + `</div>`
 		if i.ID == p.AuthorID {
-			content += `<a class="btn" href="/p/` + pathID(id) + `/edit">编辑动态</a>`
+			more += `<a href="/p/` + pathID(id) + `/edit">编辑动态</a>`
 		}
-		content += `<a class="btn" href="/help/report?object_id=` + pathID(id) + `">举报</a></div>`
-		if i.ID == p.AuthorID {
-			content += `<details class="panel"><summary>管理社群关联与内容</summary>` + app.associationForm(r, p, version) + `<hr>` + formStart(r, "/api/v1/p/"+pathID(id)+"/delete") + versionField(version) + `<p class="field-help">删除后，正文、回复和相关图片停止展示。</p><button class="btn-danger">删除内容</button></form></details>`
-		}
+	}
+	more += `</nav>`
+	if i != nil && i.ID == p.AuthorID {
+		more += `<section class="overlay-section">` + app.associationForm(r, p, version) + `</section><details class="overlay-section"><summary>删除内容</summary>` + formStart(r, "/api/v1/p/"+pathID(id)+"/delete") + versionField(version) + `<p class="field-help">删除后，正文、回复和相关图片停止展示。</p><button class="btn-danger">删除内容</button></form></details>`
 	}
 	replies, err := app.listReplies(id)
 	if err != nil {
@@ -213,7 +214,7 @@ func (app *App) postPage(w http.ResponseWriter, r *http.Request) {
 	} else {
 		content += `<section class="panel" id="reply-composer"><p>登录后即可回复、收藏和发表回复。</p><a class="btn btn-primary" href="/login">登录发表回复</a></section>`
 	}
-	app.renderPage(w, r, p.Title, "post", content)
+	app.renderPageWithMore(w, r, p.Title, "post", content, more)
 }
 func enhancedForm(r *http.Request, action string) string {
 	return strings.Replace(formStart(r, action), `<form `, `<form data-content-form `, 1)

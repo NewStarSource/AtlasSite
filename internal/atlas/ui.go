@@ -189,7 +189,8 @@ func (app *App) browserErrors(next http.Handler) http.Handler {
 			Title, Page string
 			Identity    *Identity
 			Content     template.HTML
-		}{title, "notice", nil, template.HTML(body)})
+			More        template.HTML
+		}{title, "notice", nil, template.HTML(body), ""})
 	})
 }
 

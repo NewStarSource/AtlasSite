@@ -35,7 +35,7 @@
           <span>设置</span>
         </a>
       <a href="/my" aria-label="我的" class="nav-item {{if or (eq .Page "my") (eq .Page "user") (eq .Page "bookmarks") (eq .Page "drafts") (eq .Page "subscriptions")}}active{{end}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg><span>我的</span></a></nav>
-    <div class="sidebar-footer">{{if .Identity}}<a href="/my">{{.Identity.Alias}}</a>{{else}}<a class="btn" href="/login">登录</a>{{end}}<a class="btn btn-secondary" href="/new">发布</a><div class="utility-links"><a href="/search">搜索</a><a href="/help">帮助</a></div></div></aside>
+    <div class="sidebar-footer">{{if .Identity}}<a href="/my">{{.Identity.Alias}}</a>{{else}}<a class="btn" href="/login">登录</a>{{end}}<a class="btn btn-secondary" href="/new">发布</a></div></aside>
 <div class="workspace"><header class="mobile-header"><a class="logo" href="/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" aria-hidden="true">
           <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3">
             <path d="M36 8 C35.5 13 36 18 35.5 22 C35 25 33.5 27 30.5 28.5 C25 31 18 33 11 35"/>
@@ -47,5 +47,23 @@
             <circle cx="29" cy="42.5" r="1.5" fill="currentColor" stroke="none"/>
             <circle cx="34.5" cy="58" r="1.5" fill="currentColor" stroke="none"/>
           </g>
-        </svg><span>AtlasSite</span></a><a href="/search">搜索</a><a href="/new">发布</a></header>
-<main class="main page-{{.Page}}" id="main">{{.Content}}<footer class="site-footer"><a href="/help">帮助</a><a href="/status">状态</a><span>本地测试</span></footer></main></div></div></body></html>
+        </svg><span>AtlasSite</span></a><a href="/new">发布</a></header>
+<main class="main page-{{.Page}}" id="main">
+<nav class="page-tools" aria-label="页面工具">
+  <a class="tool-icon" href="/search" data-overlay-open="search-overlay" aria-label="搜索" title="搜索" aria-haspopup="dialog" aria-controls="search-overlay" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></a>
+  <button class="tool-icon" type="button" data-overlay-open="more-overlay" aria-label="更多" title="更多" aria-haspopup="dialog" aria-controls="more-overlay" aria-expanded="false"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+</nav>
+{{.Content}}<footer class="site-footer"><a href="/help">帮助</a><a href="/status">状态</a><span>本地测试</span></footer></main></div></div>
+<dialog class="page-overlay search-overlay" id="search-overlay" aria-labelledby="search-overlay-title">
+  <header class="overlay-heading"><h2 id="search-overlay-title">搜索</h2><button class="tool-icon" type="button" data-overlay-close aria-label="关闭搜索" title="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button></header>
+  <form action="/search" method="get" class="overlay-search-form">
+    <label for="overlay-query" class="sr-only">搜索内容、社群或用户</label><div class="overlay-search-input"><input id="overlay-query" type="search" name="q" maxlength="100" placeholder="搜索内容、社群或用户…" required autofocus><button class="tool-icon" type="submit" aria-label="开始搜索" title="搜索"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></button></div>
+    <label for="overlay-search-type" class="sr-only">搜索范围</label><select id="overlay-search-type" name="type" aria-label="搜索范围"><option value="">全部</option><option value="post">动态</option><option value="community">社群</option><option value="topic">主题</option><option value="user">用户</option></select>
+  </form>
+</dialog>
+<dialog class="page-overlay more-overlay" id="more-overlay" aria-labelledby="more-overlay-title">
+  <header class="overlay-heading"><h2 id="more-overlay-title">更多</h2><button class="tool-icon" type="button" data-overlay-close aria-label="关闭更多" title="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button></header>
+  {{.More}}
+  <nav class="overlay-links overlay-section" aria-label="常用入口"><a href="/my">我的</a><a href="/settings">设置</a><a href="/help">帮助</a></nav>
+</dialog>
+</body></html>
