@@ -514,7 +514,7 @@ func (app *App) operationsRoutes(router *chi.Mux) {
 		if err != nil {
 			mode = "isolated"
 		}
-		app.renderPage(w, r, "运行状态", "status", `<h1>运行状态</h1><p>当前模式 `+esc(mode)+`。</p><p>本地合成测试，真实用户尚未接入。暂停投稿时仍保留紧急求助、举报申诉及退出入口。</p><p><a href="/help/emergency">紧急请求</a> · <a href="/help">帮助</a></p>`)
+		app.renderPage(w, r, "运行状态", "status", `<h1>运行状态</h1><p>当前模式 `+esc(mode)+`。</p><p>暂停投稿时仍保留紧急求助、举报申诉及退出入口。</p><p><a href="/help/emergency">紧急请求</a> · <a href="/help">帮助</a></p>`)
 	})
 }
 

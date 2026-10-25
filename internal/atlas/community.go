@@ -400,15 +400,15 @@ func (app *App) getCommunityBySlug(slug string) (*Community, error) {
 	return &c, nil
 }
 
-func (app *App) searchCommunities(query string) ([]Community, error) {
+func (app *App) searchCommunities(query string, offset ...int) ([]Community, error) {
 	rows, err := app.db.Query(`
 		SELECT id, slug, name, description, COALESCE(subcategory_id,''), status,
 		       contact_method, source_url, source_license, verified, created_at, updated_at
 		FROM communities
 		WHERE status IN ('active','uncategorized') AND (name LIKE ? OR description LIKE ?)
-		ORDER BY verified DESC, name ASC
-		LIMIT 50
-	`, "%"+query+"%", "%"+query+"%")
+		ORDER BY verified DESC, name ASC, id ASC
+		LIMIT 51 OFFSET ?
+	`, "%"+query+"%", "%"+query+"%", optionalOffset(offset))
 	if err != nil {
 		return nil, err
 	}

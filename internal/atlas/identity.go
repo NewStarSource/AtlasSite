@@ -93,14 +93,14 @@ func digest(value string) string {
 	sum := sha256.Sum256([]byte(value))
 	return hex.EncodeToString(sum[:])
 }
-func cookie(writer http.ResponseWriter, name, value string, age int) {
-	http.SetCookie(writer, &http.Cookie{Name: name, Value: value, MaxAge: age, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode})
+func (app *App) cookie(writer http.ResponseWriter, name, value string, age int) {
+	http.SetCookie(writer, &http.Cookie{Name: name, Value: value, MaxAge: age, Path: "/", HttpOnly: true, Secure: app.config.secure(), SameSite: http.SameSiteLaxMode})
 }
 func (app *App) audit(event string) {
 	_, _ = app.db.Exec("INSERT INTO security_events VALUES(?,?,?)", uuid.NewString(), event, time.Now().Unix())
 }
 func (app *App) protect(handler http.Handler) http.Handler {
-	protected := csrf.Protect(app.csrfKey, csrf.CookieName("star_atlas_csrf"), csrf.Secure(false), csrf.HttpOnly(true), csrf.Path("/"), csrf.SameSite(csrf.SameSiteLaxMode), csrf.ErrorHandler(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+	protected := csrf.Protect(app.csrfKey, csrf.CookieName("star_atlas_csrf"), csrf.Secure(app.config.secure()), csrf.HttpOnly(true), csrf.Path("/"), csrf.SameSite(csrf.SameSiteLaxMode), csrf.ErrorHandler(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		respond(writer, 403, map[string]string{"code": "CSRF_INVALID", "message": "请刷新页面再试"})
 	})))(handler)
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -110,7 +110,10 @@ func (app *App) protect(handler http.Handler) http.Handler {
 				return
 			}
 		}
-		protected.ServeHTTP(writer, csrf.PlaintextHTTPRequest(request))
+		if !app.config.secure() {
+			request = csrf.PlaintextHTTPRequest(request)
+		}
+		protected.ServeHTTP(writer, request)
 	})
 }
 func (app *App) identityRoutes(router chi.Router) {
@@ -138,7 +141,7 @@ func (app *App) identityRoutes(router chi.Router) {
 				return
 			}
 		}
-		cookie(writer, "star_atlas_session", "", -1)
+		app.cookie(writer, "star_atlas_session", "", -1)
 		http.Redirect(writer, request, "/", 303)
 	})
 	router.Post("/auth/reauthenticate", func(writer http.ResponseWriter, request *http.Request) { app.startFlow(writer, request, "reauth") })
@@ -161,7 +164,7 @@ func (app *App) identityRoutes(router chi.Router) {
 			return
 		}
 		app.audit("sessions_revoked")
-		cookie(writer, "star_atlas_session", "", -1)
+		app.cookie(writer, "star_atlas_session", "", -1)
 		http.Redirect(writer, request, "/", 303)
 	})
 }
@@ -232,7 +235,7 @@ func (app *App) startFlow(writer http.ResponseWriter, request *http.Request, pur
 		respond(writer, 503, map[string]string{"code": "DEPENDENCY_UNAVAILABLE"})
 		return
 	}
-	cookie(writer, "star_atlas_flow", binding, 300)
+	app.cookie(writer, "star_atlas_flow", binding, 300)
 	options := []oauth2.AuthCodeOption{oauth2.S256ChallengeOption(verifier), oidc.Nonce(nonce)}
 	if purpose == "reauth" {
 		options = append(options, oauth2.SetAuthURLParam("prompt", "login"), oauth2.SetAuthURLParam("max_age", "0"))
@@ -268,7 +271,7 @@ func (app *App) callback(writer http.ResponseWriter, request *http.Request) {
 		failed()
 		return
 	}
-	cookie(writer, "star_atlas_flow", "", -1)
+	app.cookie(writer, "star_atlas_flow", "", -1)
 	verifier, err = app.openVerifier(verifier)
 	if err != nil {
 		failed()
@@ -402,7 +405,7 @@ func (app *App) callback(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 	success = true
-	cookie(writer, "star_atlas_session", rawSession, int(expiry-time.Now().Unix()))
+	app.cookie(writer, "star_atlas_session", rawSession, int(expiry-time.Now().Unix()))
 	app.audit("oidc_login_succeeded")
 	http.Redirect(writer, request, "/security", 303)
 }

@@ -75,12 +75,12 @@ func (app *App) communityPage(w http.ResponseWriter, r *http.Request) {
 			}
 			body += `</div>`
 		}
-		posts, e := app.listPosts(c.ID, 50)
+		posts, e := app.listPosts(c.ID, pageSize+1, pageOffset(r))
 		if e != nil {
 			fail(w, e)
 			return
 		}
-		body += `<div class="section-heading"><h2 class="sr-only">最近讨论</h2></div><div class="feed-list">` + app.postCards(posts, viewer, r) + `</div>`
+		body += `<div class="section-heading"><h2 class="sr-only">最近讨论</h2></div><div class="feed-list">` + app.postCards(pageItems(posts), viewer, r) + `</div>` + pagination(r, len(posts) > pageSize)
 	} else if view == "about" {
 		body += `<section class="panel prose"><h2>关于这个社群</h2><p>` + esc(c.Description) + `</p><h3>接触方式</h3><p>` + esc(c.ContactMethod) + `</p><h3>来源与许可</h3><p>` + verified + ` · ` + esc(c.SourceLicense) + `</p>`
 		if safeSource(c.SourceURL) {

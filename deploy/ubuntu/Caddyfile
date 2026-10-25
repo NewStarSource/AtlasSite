@@ -1,0 +1,51 @@
+{
+	admin unix//run/caddy/admin.sock
+	log {
+		format filter {
+			wrap json
+			fields {
+				request>uri replace "[redacted]"
+				request>headers>Referer delete
+				request>headers>Cookie delete
+				request>headers>Authorization delete
+			}
+		}
+	}
+	servers {
+		strict_sni_host on
+		timeouts {
+			read_header 10s
+			idle 2m
+		}
+	}
+}
+
+# Production origins for runnewstar.xyz.
+atlas.runnewstar.xyz {
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:4200 {
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto https
+		header_up -Forwarded
+		header_up -X-Forwarded-Host
+	}
+}
+account.runnewstar.xyz {
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:4100 {
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto https
+		header_up -Forwarded
+		header_up -X-Forwarded-Host
+	}
+}

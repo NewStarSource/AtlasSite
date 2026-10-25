@@ -85,7 +85,7 @@ func (app *App) getPost(id string) (*Post, error) {
 	return &p, nil
 }
 
-func (app *App) listPosts(communityID string, limit int) ([]Post, error) {
+func (app *App) listPosts(communityID string, limit int, offset ...int) ([]Post, error) {
 	query := `
 		SELECT p.id, COALESCE(p.community_id,''), COALESCE(c.name, ''), COALESCE(c.slug,''),p.author_id, COALESCE(i.alias, ''),COALESCE(i.status,'deleted'),
 		       p.title, p.content, p.status, p.view_count, p.reply_count, p.bookmark_count,
@@ -94,11 +94,11 @@ func (app *App) listPosts(communityID string, limit int) ([]Post, error) {
 		LEFT JOIN communities c ON p.community_id = c.id
 		LEFT JOIN users i ON p.author_id = i.id
 		WHERE p.community_id = ? AND ` + visiblePostSQL + `
-		ORDER BY p.created_at DESC
-		LIMIT ?
+		ORDER BY p.created_at DESC, p.id DESC
+		LIMIT ? OFFSET ?
 	`
 
-	rows, err := app.db.Query(query, communityID, limit)
+	rows, err := app.db.Query(query, communityID, limit, optionalOffset(offset))
 	if err != nil {
 		return nil, err
 	}
@@ -123,6 +123,9 @@ func (app *App) listPosts(communityID string, limit int) ([]Post, error) {
 
 func (app *App) listRecentPosts(limit int) ([]Post, error) { return app.queryPosts("", limit) }
 func (app *App) queryPosts(condition string, limit int, args ...any) ([]Post, error) {
+	return app.queryPostsPage(condition, limit, 0, args...)
+}
+func (app *App) queryPostsPage(condition string, limit, offset int, args ...any) ([]Post, error) {
 	query := `
 		SELECT p.id, COALESCE(p.community_id,''), COALESCE(c.name, ''), COALESCE(c.slug,''),p.author_id, COALESCE(i.alias, ''),COALESCE(i.status,'deleted'),
 		       p.title, p.content, p.status, p.view_count, p.reply_count, p.bookmark_count,
@@ -131,11 +134,11 @@ func (app *App) queryPosts(condition string, limit int, args ...any) ([]Post, er
 		LEFT JOIN communities c ON p.community_id = c.id
 		LEFT JOIN users i ON p.author_id = i.id
 		WHERE ` + visiblePostSQL + condition + `
-		ORDER BY p.created_at DESC
-		LIMIT ?
+		ORDER BY p.created_at DESC, p.id DESC
+		LIMIT ? OFFSET ?
 	`
 
-	args = append(args, limit)
+	args = append(args, limit, offset)
 	rows, err := app.db.Query(query, args...)
 	if err != nil {
 		return nil, err

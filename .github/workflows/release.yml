@@ -1,0 +1,50 @@
+name: dual-service-release
+on:
+  workflow_dispatch:
+    inputs:
+      account_repository:
+        description: Account owner/repository
+        required: true
+      account_ref:
+        description: Exact reviewed account commit SHA
+        required: true
+      atlas_ref:
+        description: Exact reviewed Atlas commit SHA
+        required: true
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.atlas_ref }}
+          path: AtlasSite
+      - uses: actions/checkout@v5
+        with:
+          repository: ${{ inputs.account_repository }}
+          ref: ${{ inputs.account_ref }}
+          token: ${{ secrets.ACCOUNT_READ_TOKEN || github.token }}
+          path: StarAccount
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: AtlasSite/go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python AtlasSite/scripts/check_release.py --race --output release
+      - run: python AtlasSite/scripts/test_production.py --account-bin release/bin/staraccount --atlas-bin release/bin/staratlas
+      - run: python AtlasSite/scripts/test_watchdog.py
+      - run: npm install --prefix "$RUNNER_TEMP/newstar-browser" playwright@1.62.1
+      - run: node "$RUNNER_TEMP/newstar-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - run: python AtlasSite/scripts/test_browser.py --account-bin release/bin/staraccount --atlas-bin release/bin/staratlas
+        env:
+          NODE_PATH: ${{ runner.temp }}/newstar-browser/node_modules
+      - uses: actions/upload-artifact@v4
+        with:
+          name: newstar-linux-amd64
+          path: release

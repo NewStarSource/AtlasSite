@@ -14,7 +14,7 @@ func (app *App) notificationRoutes(router *chi.Mux) {
 		if i == nil {
 			return
 		}
-		rows, err := app.db.Query("SELECT id,kind,object_id,post_id,read_at,created_at FROM notifications WHERE user_id=? AND created_at>? ORDER BY created_at DESC,id LIMIT 100", i.ID, time.Now().Add(-180*24*time.Hour).Unix())
+		rows, err := app.db.Query("SELECT id,kind,object_id,post_id,read_at,created_at FROM notifications WHERE user_id=? AND created_at>? ORDER BY created_at DESC,id LIMIT 51 OFFSET ?", i.ID, time.Now().Add(-180*24*time.Hour).Unix(), pageOffset(r))
 		if err != nil {
 			fail(w, err)
 			return
@@ -33,7 +33,7 @@ func (app *App) notificationRoutes(router *chi.Mux) {
 		rows.Close()
 		body := pageHeading("NOTIFICATIONS", "通知", "回复、订阅讨论与处理结论的更新。", `<a class="btn" href="/settings">通知偏好</a>`)
 		shown := 0
-		for _, n := range items {
+		for _, n := range pageItems(items) {
 			label, target := "请求状态更新", "/my/cases/"+pathID(n.object)
 			if n.kind == "post" {
 				if !app.postVisible(n.object, i.ID) {
@@ -72,7 +72,7 @@ func (app *App) notificationRoutes(router *chi.Mux) {
 		if shown == 0 {
 			body += emptyState("暂时没有新通知", "参与讨论，或订阅感兴趣的社群。新的更新会出现在这里。", "/discover", "发现社群")
 		}
-		app.renderPage(w, r, "通知", "notifications", body)
+		app.renderPage(w, r, "通知", "notifications", body+pagination(r, len(items) > pageSize))
 	})
 	router.Post("/api/v1/notifications/{id}/read", func(w http.ResponseWriter, r *http.Request) { app.updateNotification(w, r, false) })
 	router.Post("/api/v1/notifications/{id}/delete", func(w http.ResponseWriter, r *http.Request) { app.updateNotification(w, r, true) })

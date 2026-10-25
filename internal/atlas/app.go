@@ -7,9 +7,7 @@ import (
 	"errors"
 	"html/template"
 	"io"
-	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,36 +45,35 @@ var managementSchema string
 const currentSchema = 7
 
 type Config struct {
-	Mode            string `json:"mode"`
-	Address         string `json:"address"`
-	Origin          string `json:"origin"`
-	AccountOrigin   string `json:"account_origin"`
-	Database        string `json:"database"`
-	OIDCSecretFile  string `json:"oidc_secret_file"`
-	CSRFKeyFile     string `json:"csrf_key_file"`
-	VaultDatabase   string `json:"vault_database"`
-	VaultKeyFile    string `json:"vault_key_file"`
-	BackupDirectory string `json:"backup_directory"`
-	BackupKeyFile   string `json:"backup_key_file"`
-	OpsJournalFile  string `json:"ops_journal_file"`
-	WriteUntil      string `json:"write_until,omitempty"`
+	TrustedProxies  []string `json:"trusted_proxies,omitempty"`
+	SupportURL      string   `json:"support_url,omitempty"`
+	Mode            string   `json:"mode"`
+	Address         string   `json:"address"`
+	Origin          string   `json:"origin"`
+	AccountOrigin   string   `json:"account_origin"`
+	Database        string   `json:"database"`
+	OIDCSecretFile  string   `json:"oidc_secret_file"`
+	CSRFKeyFile     string   `json:"csrf_key_file"`
+	VaultDatabase   string   `json:"vault_database"`
+	VaultKeyFile    string   `json:"vault_key_file"`
+	BackupDirectory string   `json:"backup_directory"`
+	BackupKeyFile   string   `json:"backup_key_file"`
+	OpsJournalFile  string   `json:"ops_journal_file"`
+	WriteUntil      string   `json:"write_until,omitempty"`
 }
 
 func (config Config) Validate() error {
-	if config.Mode != "development" && config.Mode != "test" {
-		return errors.New("当前阶段仅开放 development/test；生产需要后续身份与上线验收")
+	if err := validateTransport(config.Mode, config.Address, config.Origin, config.TrustedProxies); err != nil {
+		return err
 	}
-	host, _, err := net.SplitHostPort(config.Address)
-	if err != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() {
-		return errors.New("当前阶段只允许绑定回环地址")
+	if err := validateOrigin(config.AccountOrigin, config.secure()); err != nil {
+		return err
 	}
-	origin, err := url.Parse(config.Origin)
-	if err != nil || origin.Scheme != "http" || origin.Host != config.Address || origin.Path != "" || origin.RawQuery != "" || origin.Fragment != "" || origin.User != nil {
-		return errors.New("origin 必须与回环 HTTP 地址一致")
+	if config.secure() && (config.OIDCSecretFile == "" || config.CSRFKeyFile == "") {
+		return errors.New("生产必须配置 OIDC 和 CSRF 密钥")
 	}
-	account, err := url.Parse(config.AccountOrigin)
-	if err != nil || account.Scheme != "http" || net.ParseIP(account.Hostname()) == nil || !net.ParseIP(account.Hostname()).IsLoopback() || account.Path != "" || account.RawQuery != "" || account.User != nil || account.Fragment != "" {
-		return errors.New("账户地址必须为回环 HTTP origin")
+	if config.SupportURL != "" && !safeSource(config.SupportURL) {
+		return errors.New("support_url 必须使用 HTTP 或 HTTPS")
 	}
 	if config.Database == "" || strings.ContainsAny(config.Database, "?\x00") {
 		return errors.New("database 配置无效")
@@ -282,22 +279,23 @@ func respond(writer http.ResponseWriter, status int, value any) {
 	writer.WriteHeader(status)
 	_ = json.NewEncoder(writer).Encode(value)
 }
-func (app *App) Handler() http.Handler {
+func (app *App) Handler() http.Handler { return app.transport(app.baseHandler()) }
+func (app *App) baseHandler() http.Handler {
 	router := chi.NewRouter()
 	router.Get("/", app.homePage)
 	router.Get("/search", app.searchPage)
 	router.Get("/config", func(w http.ResponseWriter, r *http.Request) {
-		app.renderPage(w, r, "配置清单", "config", `<h1>本地测试配置</h1><p>当前仅开放本地合成验收，真实用户尚未接入。</p><p>登录凭据由新星账户持有；图片经星图鉴权，草稿及敏感材料独立加密保存。</p>`)
+		app.renderPage(w, r, "配置清单", "config", `<h1>服务说明</h1><p>登录凭据由新星账户持有；图片经星图鉴权，草稿及敏感材料独立加密保存。</p>`)
 	})
 	router.Get("/health", func(writer http.ResponseWriter, request *http.Request) {
 		if err := app.db.PingContext(request.Context()); err != nil {
 			respond(writer, 503, map[string]string{"code": "DEPENDENCY_UNAVAILABLE"})
 			return
 		}
-		respond(writer, 200, map[string]any{"ok": true, "service": "star-atlas", "stage": "core-local", "oidc_configured": app.secret != "", "integration": "本地合成；真实环境未联调", "real_users": false})
+		respond(writer, 200, map[string]any{"ok": true, "service": "star-atlas", "mode": app.config.Mode, "oidc_configured": app.secret != "", "real_users": app.config.secure()})
 	})
 	router.Get("/api/v1/config", func(writer http.ResponseWriter, request *http.Request) {
-		respond(writer, 200, map[string]any{"service": "star-atlas", "password_owner": "star-account", "account_origin": app.config.AccountOrigin, "oidc_configured": app.secret != "", "real_users": false})
+		respond(writer, 200, map[string]any{"service": "star-atlas", "password_owner": "star-account", "account_origin": app.config.AccountOrigin, "oidc_configured": app.secret != "", "real_users": app.config.secure()})
 	})
 	router.Get("/api/v1/session", func(writer http.ResponseWriter, request *http.Request) {
 		identity, degraded, err := app.currentIdentity(request)
@@ -339,7 +337,7 @@ func (app *App) Handler() http.Handler {
 		writer.Header().Set("X-Content-Type-Options", "nosniff")
 		writer.Header().Set("X-Frame-Options", "DENY")
 		writer.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
-		if request.Host != app.config.Address {
+		if request.Host != app.config.publicHost() {
 			respond(writer, 400, map[string]string{"code": "HOST_INVALID"})
 			return
 		}

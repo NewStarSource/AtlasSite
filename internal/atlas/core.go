@@ -130,7 +130,7 @@ func field(name, value string) string {
 	return `<input type="hidden" name="` + esc(name) + `" value="` + esc(value) + `">`
 }
 func (app *App) homePage(w http.ResponseWriter, r *http.Request) {
-	posts, err := app.listRecentPosts(50)
+	posts, err := app.queryPostsPage("", pageSize+1, pageOffset(r))
 	if err != nil {
 		respond(w, 503, map[string]string{"code": "DEPENDENCY_UNAVAILABLE"})
 		return
@@ -144,7 +144,7 @@ func (app *App) homePage(w http.ResponseWriter, r *http.Request) {
 	} else {
 		body += `<div class="composer"><p>分享你的想法、创作或观察…</p><div class="composer-toolbar"><a class="btn" href="/login">登录后发布</a></div></div>`
 	}
-	body += `<div class="feed" role="feed">` + app.postCards(posts, viewer, r) + `</div>`
+	body += `<div class="feed" role="feed">` + app.postCards(pageItems(posts), viewer, r) + `</div>` + pagination(r, len(posts) > pageSize)
 	app.renderPage(w, r, "最新发布", "home", body)
 }
 

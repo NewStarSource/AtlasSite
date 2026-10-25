@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+import shutil
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -115,7 +117,8 @@ def main():
             print("PASS publish/reply/bookmark/search/case flow with real CSRF and login identity")
 
             expect(client.request(atlas + "/admin"), 403, "ordinary identity has no admin role")
-            subprocess.run([str(atlas_bin), "admin-bootstrap", owner], cwd=atlas_dir, check=True, capture_output=True)
+            bootstrap = subprocess.run([str(atlas_bin), "admin-bootstrap", owner], cwd=atlas_dir, capture_output=True)
+            assert bootstrap.returncode == 0, ("admin-bootstrap", bootstrap.stdout.decode(errors="replace"), bootstrap.stderr.decode(errors="replace"))
             expect(client.request(atlas + "/admin"), 200, "bootstrapped management page")
             expect(form_post(client, atlas, "/admin/team", {"user_id": owner}), 403, "management requires fresh reauthentication")
             start = form_post(client, atlas, "/auth/reauthenticate", {})
@@ -145,10 +148,22 @@ def main():
                 watch_configs.append(filename)
             watch = Path(__file__).with_name("watchdog.ps1").resolve()
             args = ["pwsh", "-NoProfile", "-File", str(watch), "-AccountBinary", str(account_bin), "-AtlasBinary", str(atlas_bin), "-AccountConfig", str(watch_configs[0]), "-AtlasConfig", str(watch_configs[1]), "-AlertDirectory", str(Path(root) / "alerts"), "-TestAlert"]
+            expected_exit = 1
+            if not shutil.which("pwsh"):
+                portable_configs = Path(root) / "watch-configs"
+                portable_configs.mkdir()
+                for name, source in zip(("account", "atlas"), watch_configs):
+                    shutil.copyfile(source, portable_configs / (name + ".json"))
+                binary_dir = Path(root) / "watch-binaries"
+                binary_dir.mkdir()
+                for name, source in (("staraccount", account_bin), ("staratlas", atlas_bin)):
+                    (binary_dir / name).symlink_to(source)
+                args = [sys.executable, str(watch.with_suffix(".py")), "--config-dir", str(portable_configs), "--bin-dir", str(binary_dir), "--state-dir", str(Path(root) / "alerts"), "--test-alert"]
+                expected_exit = 2  # No external notification channel in an isolated test.
             result = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="replace")
-            assert result.returncode == 1 and "synthetic:TEST_ALERT" in result.stdout, "watchdog test alert failed"
+            assert result.returncode == expected_exit and "synthetic:TEST_ALERT" in result.stdout, ("watchdog test alert failed", result.stdout, result.stderr)
             repeated = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="replace")
-            assert repeated.returncode == 1 and not repeated.stdout.strip(), "unchanged alert repeated"
+            assert repeated.returncode == expected_exit and not repeated.stdout.strip(), "unchanged alert repeated"
             print("PASS both encrypted backups; independent local watchdog alert injection and deduplication")
         finally:
             for process in processes:

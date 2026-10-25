@@ -1,0 +1,10 @@
+[Unit]
+Description=Encrypted NewStar disaster recovery bundle to offsite storage
+After=network-online.target
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/newstar/backup.env
+ExecStart=/bin/bash /opt/newstar/current/scripts/export_recovery_bundle.sh
+UMask=0077
+TimeoutStartSec=300
+TimeoutStopSec=120

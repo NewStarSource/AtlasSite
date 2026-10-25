@@ -46,12 +46,12 @@ func (app *App) registerUserRoutes(router *chi.Mux) {
 			fail(w, sql.ErrNoRows)
 			return
 		}
-		posts, err := app.listPostsByAuthor(id, 50)
+		posts, err := app.listPostsByAuthor(id, pageSize+1, pageOffset(r))
 		if err != nil {
 			fail(w, err)
 			return
 		}
-		replies, err := app.listRepliesByAuthor(id, 50)
+		replies, err := app.listRepliesByAuthor(id, pageSize+1, pageOffset(r))
 		if err != nil {
 			fail(w, err)
 			return
@@ -96,10 +96,10 @@ func (app *App) registerUserRoutes(router *chi.Mux) {
 		}
 		body += `</nav>`
 		if tab == "posts" {
-			body += `<div class="feed">` + app.postCards(posts, viewer, r) + `</div>`
+			body += `<div class="feed">` + app.postCards(pageItems(posts), viewer, r) + `</div>`
 		} else {
 			shown := 0
-			for _, reply := range replies {
+			for _, reply := range pageItems(replies) {
 				if app.replyVisible(reply.ID, viewer) {
 					shown++
 					body += `<article class="post"><a class="post-community" href="/p/` + pathID(reply.PostID) + `#reply-` + pathID(reply.ID) + `">` + esc(reply.PostTitle) + `</a><div class="prose">` + renderMarkdown(reply.Content) + `</div></article>`
@@ -110,6 +110,11 @@ func (app *App) registerUserRoutes(router *chi.Mux) {
 			}
 		}
 
+		if tab == "posts" {
+			body += pagination(r, len(posts) > pageSize)
+		} else {
+			body += pagination(r, len(replies) > pageSize)
+		}
 		if i != nil && i.ID != id {
 			body += formStart(r, "/api/v1/blocks/"+pathID(id)) + field("blocked", "true") + `<button>屏蔽该用户</button></form>`
 		}
@@ -149,12 +154,12 @@ func (app *App) registerUserRoutes(router *chi.Mux) {
 		if i == nil {
 			return
 		}
-		posts, err := app.listBookmarks(i.ID, 100)
+		posts, err := app.listBookmarks(i.ID, pageSize+1, pageOffset(r))
 		if err != nil {
 			fail(w, err)
 			return
 		}
-		app.renderPage(w, r, "我的收藏", "bookmarks", pageHeading("BOOKMARKS", "我的收藏", "", `<a class="btn" href="/">浏览动态</a>`)+`<div class="feed-list">`+app.postCards(posts, i.ID, r)+`</div>`)
+		app.renderPage(w, r, "我的收藏", "bookmarks", pageHeading("BOOKMARKS", "我的收藏", "", `<a class="btn" href="/">浏览动态</a>`)+`<div class="feed-list">`+app.postCards(pageItems(posts), i.ID, r)+`</div>`+pagination(r, len(posts) > pageSize))
 	})
 	router.Post("/api/v1/p/{id}/bookmark", func(w http.ResponseWriter, r *http.Request) { app.setInteraction(w, r, "bookmark") })
 	router.Post("/api/v1/p/{id}/like", func(w http.ResponseWriter, r *http.Request) { app.setInteraction(w, r, "like") })
@@ -234,35 +239,44 @@ func (app *App) searchPage(w http.ResponseWriter, r *http.Request) {
 	if i != nil {
 		viewer = i.ID
 	}
+	more := false
 	if q != "" {
 		pattern := "%" + q + "%"
 		if kind == "" || kind == "community" {
-			communities, err := app.searchCommunities(q)
+			communities, err := app.searchCommunities(q, pageOffset(r))
 			if err != nil {
 				fail(w, err)
 				return
 			}
 			body += `<h2>社群</h2>`
-			for _, c := range communities {
+			more = more || len(communities) > pageSize
+			for _, c := range pageItems(communities) {
 				body += `<p><a href="/c/` + pathID(c.Slug) + `">` + esc(c.Name) + `</a> · ` + esc(c.Description) + `</p>`
 			}
 		}
 		if kind == "" || kind == "post" {
-			posts, err := app.queryPosts(" AND (p.title LIKE ? OR p.content LIKE ?)", 100, pattern, pattern)
+			posts, err := app.queryPostsPage(" AND (p.title LIKE ? OR p.content LIKE ?)", pageSize+1, pageOffset(r), pattern, pattern)
 			if err != nil {
 				fail(w, err)
 				return
 			}
-			body += `<h2>动态</h2>` + app.postCards(posts, viewer, r)
+			more = more || len(posts) > pageSize
+			body += `<h2>动态</h2>` + app.postCards(pageItems(posts), viewer, r)
 		}
 		if kind == "" || kind == "topic" {
-			rows, err := app.db.Query("SELECT t.name,c.slug,t.slug FROM topics t JOIN communities c ON c.id=t.community_id WHERE t.status='active' AND c.status IN ('active','uncategorized') AND (t.name LIKE ? OR t.description LIKE ?) ORDER BY t.name,t.id LIMIT 50", pattern, pattern)
+			rows, err := app.db.Query("SELECT t.name,c.slug,t.slug FROM topics t JOIN communities c ON c.id=t.community_id WHERE t.status='active' AND c.status IN ('active','uncategorized') AND (t.name LIKE ? OR t.description LIKE ?) ORDER BY t.name,t.id LIMIT 51 OFFSET ?", pattern, pattern, pageOffset(r))
 			if err != nil {
 				fail(w, err)
 				return
 			}
 			body += `<h2>主题</h2>`
+			topicCount := 0
 			for rows.Next() {
+				topicCount++
+				if topicCount > pageSize {
+					more = true
+					continue
+				}
 				var name, c, t string
 				rows.Scan(&name, &c, &t)
 				body += `<p><a href="/c/` + pathID(c) + `/t/` + pathID(t) + `">` + esc(name) + `</a></p>`
@@ -270,7 +284,7 @@ func (app *App) searchPage(w http.ResponseWriter, r *http.Request) {
 			rows.Close()
 		}
 		if kind == "" || kind == "user" {
-			rows, err := app.db.Query("SELECT id,alias FROM users WHERE status='active' AND alias LIKE ? ORDER BY alias,id LIMIT 50", pattern)
+			rows, err := app.db.Query("SELECT id,alias FROM users WHERE status='active' AND alias LIKE ? ORDER BY alias,id LIMIT 51 OFFSET ?", pattern, pageOffset(r))
 			if err != nil {
 				fail(w, err)
 				return
@@ -284,12 +298,13 @@ func (app *App) searchPage(w http.ResponseWriter, r *http.Request) {
 			}
 			rows.Close()
 			body += `<h2>用户化名</h2>`
-			for _, u := range users {
+			more = more || len(users) > pageSize
+			for _, u := range pageItems(users) {
 				if !app.blocked(viewer, u.id) {
 					body += fmt.Sprintf(`<p><a href="/u/%s">%s</a></p>`, pathID(u.id), esc(u.name))
 				}
 			}
 		}
 	}
-	app.renderPage(w, r, "搜索", "search", body)
+	app.renderPage(w, r, "搜索", "search", body+pagination(r, more))
 }

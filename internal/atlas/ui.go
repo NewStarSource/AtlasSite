@@ -83,7 +83,10 @@ func caseLabel(value string) string {
 
 func (app *App) helpPage(w http.ResponseWriter, r *http.Request) {
 	body := pageHeading("", "帮助", "", `<a href="/my/cases">我的请求</a>`)
-	body += `<div class="link-list"><a href="/help/report">举报内容 <span>→</span></a><a href="/help/emergency">紧急请求 <span>→</span></a><a href="/my/cases">举报与申诉 <span>→</span></a><a href="/my/export">导出数据 <span>→</span></a><a href="/settings/account">注销与恢复 <span>→</span></a></div><details class="panel"><summary>使用与权利说明</summary><p>发布自有文字与图片，并选择许可。私人草稿和未发布图片仅自己可见。</p><p>删除后，原内容及其下游停止展示；受限正文通常保留 30 天，争议材料按案件期限冻结。普通备份最多 12 个月，恢复前重放删除清单。</p><p>紧急请求 24 小时内响应，普通举报和申诉 168 小时内初步处理。当前本地测试不提供全天值守；利益冲突申诉等待独立复核。</p></details>`
+	body += `<div class="link-list"><a href="/help/report">举报内容 <span>→</span></a><a href="/help/emergency">紧急请求 <span>→</span></a><a href="/my/cases">举报与申诉 <span>→</span></a><a href="/my/export">导出数据 <span>→</span></a><a href="/settings/account">注销与恢复 <span>→</span></a></div><details class="panel"><summary>使用与权利说明</summary><p>发布自有文字与图片，并选择许可。私人草稿和未发布图片仅自己可见。</p><p>删除后，原内容及其下游停止展示；受限正文通常保留 30 天，争议材料按案件期限冻结。普通备份最多 12 个月，恢复前重放删除清单。</p><p>紧急请求 24 小时内响应，普通举报和申诉 168 小时内初步处理。处理时间以实际支持公告为准；利益冲突申诉等待独立复核。</p></details>`
+	if app.config.SupportURL != "" {
+		body += `<p><a href="` + esc(app.config.SupportURL) + `" rel="noopener noreferrer">联系支持</a></p>`
+	}
 	app.renderPage(w, r, "帮助", "help", body)
 }
 

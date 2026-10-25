@@ -39,7 +39,7 @@ func (app *App) getIdentity(id string) (*UserProfile, error) {
 	return &u, nil
 }
 
-func (app *App) listPostsByAuthor(authorID string, limit int) ([]Post, error) {
+func (app *App) listPostsByAuthor(authorID string, limit int, offset ...int) ([]Post, error) {
 	rows, err := app.db.Query(`
 		SELECT p.id, COALESCE(p.community_id,''), COALESCE(c.name, ''), COALESCE(c.slug,''),p.author_id, COALESCE(i.alias, ''),COALESCE(i.status,'deleted'),
 		       p.title, p.content, p.status, p.view_count, p.reply_count, p.bookmark_count,
@@ -48,9 +48,9 @@ func (app *App) listPostsByAuthor(authorID string, limit int) ([]Post, error) {
 		LEFT JOIN communities c ON p.community_id = c.id
 		LEFT JOIN users i ON p.author_id = i.id
 		WHERE p.author_id = ? AND `+visiblePostSQL+`
-		ORDER BY p.created_at DESC
-		LIMIT ?
-	`, authorID, limit)
+		ORDER BY p.created_at DESC, p.id DESC
+		LIMIT ? OFFSET ?
+	`, authorID, limit, optionalOffset(offset))
 
 	if err != nil {
 		return nil, err
@@ -74,7 +74,7 @@ func (app *App) listPostsByAuthor(authorID string, limit int) ([]Post, error) {
 	return posts, rows.Err()
 }
 
-func (app *App) listRepliesByAuthor(authorID string, limit int) ([]ReplyWithPost, error) {
+func (app *App) listRepliesByAuthor(authorID string, limit int, offset ...int) ([]ReplyWithPost, error) {
 	rows, err := app.db.Query(`
 		SELECT r.id, r.post_id, r.parent_id, r.author_id, COALESCE(i.alias, ''),
 		       r.content, r.level, r.status, r.created_at, r.updated_at,
@@ -83,9 +83,9 @@ func (app *App) listRepliesByAuthor(authorID string, limit int) ([]ReplyWithPost
 		LEFT JOIN users i ON r.author_id = i.id
 		LEFT JOIN posts p ON r.post_id = p.id
 		WHERE r.author_id = ? AND r.status = 'published' AND `+visiblePostSQL+`
-		ORDER BY r.created_at DESC
-		LIMIT ?
-	`, authorID, limit)
+		ORDER BY r.created_at DESC, r.id DESC
+		LIMIT ? OFFSET ?
+	`, authorID, limit, optionalOffset(offset))
 
 	if err != nil {
 		return nil, err
@@ -110,7 +110,7 @@ func (app *App) listRepliesByAuthor(authorID string, limit int) ([]ReplyWithPost
 	return replies, rows.Err()
 }
 
-func (app *App) listBookmarks(identityID string, limit int) ([]Post, error) {
+func (app *App) listBookmarks(identityID string, limit int, offset ...int) ([]Post, error) {
 	rows, err := app.db.Query(`
 		SELECT p.id, COALESCE(p.community_id,''), COALESCE(c.name, ''), COALESCE(c.slug,''),p.author_id, COALESCE(i.alias, ''),COALESCE(i.status,'deleted'),
 		       p.title, p.content, p.status, p.view_count, p.reply_count, p.bookmark_count,
@@ -120,9 +120,9 @@ func (app *App) listBookmarks(identityID string, limit int) ([]Post, error) {
 		LEFT JOIN communities c ON p.community_id = c.id
 		LEFT JOIN users i ON p.author_id = i.id
 		WHERE b.identity_id = ? AND `+visiblePostSQL+`
-		ORDER BY b.created_at DESC
-		LIMIT ?
-	`, identityID, limit)
+		ORDER BY b.created_at DESC, p.id DESC
+		LIMIT ? OFFSET ?
+	`, identityID, limit, optionalOffset(offset))
 
 	if err != nil {
 		return nil, err

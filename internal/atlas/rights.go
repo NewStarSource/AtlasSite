@@ -179,7 +179,7 @@ func (app *App) caseForm(w http.ResponseWriter, r *http.Request, emergency bool)
 	} else {
 		body += `<div class="notice">已关联你刚才选择的内容，不需要填写编号。</div>`
 	}
-	body += `<label for="report-detail">必要说明</label><textarea id="report-detail" name="detail" maxlength="4000" placeholder="说明问题…" required></textarea><label class="check-row"><input type="checkbox" name="conflict" value="1"><span>涉及处理人员或利益冲突</span></label><p class="field-help">说明加密保存，结案后 30 天清理。</p><button class="btn btn-primary">提交请求</button></form></section><div class="notice">紧急请求 24 小时，普通请求 168 小时。本地测试无全天值守。</div>`
+	body += `<label for="report-detail">必要说明</label><textarea id="report-detail" name="detail" maxlength="4000" placeholder="说明问题…" required></textarea><label class="check-row"><input type="checkbox" name="conflict" value="1"><span>涉及处理人员或利益冲突</span></label><p class="field-help">说明加密保存，结案后 30 天清理。</p><button class="btn btn-primary">提交请求</button></form></section><div class="notice">紧急请求 24 小时，普通请求 168 小时。请留意支持渠道公告。</div>`
 	app.renderPage(w, r, title, "help", body)
 }
 func (app *App) submitCase(w http.ResponseWriter, r *http.Request) {
@@ -298,7 +298,7 @@ func (app *App) submitCase(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/my/cases/"+pathID(id)+"?received=1", 303)
 		return
 	}
-	app.renderPage(w, r, "请求已受理", "help", pageHeading("REQUEST RECEIVED", "请求已受理", "请保存受理编号，便于后续查询。", "")+`<section class="panel"><span class="badge badge-soft">已受理</span><p class="case-reference">受理编号 `+esc(id)+`</p><p>处理进度可在我的举报与申诉中查看。未登录紧急请求请保存编号并交给本地项目负责人。</p><a class="btn" href="/my/cases">我的请求</a></section>`)
+	app.renderPage(w, r, "请求已受理", "help", pageHeading("REQUEST RECEIVED", "请求已受理", "请保存受理编号，便于后续查询。", "")+`<section class="panel"><span class="badge badge-soft">已受理</span><p class="case-reference">受理编号 `+esc(id)+`</p><p>处理进度可在我的举报与申诉中查看。未登录紧急请求请保存编号并通过帮助页支持渠道提供。</p><a class="btn" href="/my/cases">我的请求</a></section>`)
 }
 func (app *App) casesPage(w http.ResponseWriter, r *http.Request) {
 	i := app.requireIdentity(w, r, false)
@@ -592,7 +592,7 @@ func (app *App) deactivateAtlas(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	cookie(w, "star_atlas_session", "", -1)
+	app.cookie(w, "star_atlas_session", "", -1)
 	http.Redirect(w, r, "/recover", 303)
 }
 func urlValues(account, sid string) string { return "account_id=" + account + "&sid=" + sid }

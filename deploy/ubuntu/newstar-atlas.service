@@ -1,0 +1,33 @@
+[Unit]
+Description=NewStar atlas
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=newstar-atlas
+Group=newstar-atlas
+WorkingDirectory=/var/lib/newstar/atlas
+ExecStart=/opt/newstar/current/bin/staratlas -config /etc/newstar/atlas.json
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=100
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+InaccessiblePaths=-/var/lib/newstar/account
+ReadWritePaths=/var/lib/newstar/atlas
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LimitNOFILE=8192
+
+[Install]
+WantedBy=multi-user.target

@@ -1,73 +1,40 @@
 # StarAtlas 星图
 
-按 `D:/NewStarProject/SAfiles/TECH-01` 的 Go + chi + SQLite 基线建设。
-当前已补齐核心内容、用户权利和本地运维链路，仍限 development/test 回环环境。账户服务位于相邻 `StarAccount` 仓库。
+Go + chi + SQLite 社群与内容服务。账户由相邻的 StarAccount 独立持有，星图不保存密码。当前数据库版本为 **7**，账户数据库版本为 **6**。生产采用单台 Ubuntu 24.04、本机 TLS 反向代理与独立服务用户部署。
 
-本次交付见 [核心缺口补齐记录](docs/CORE_GAPS_2026-10-06.md)、[运行与恢复步骤](docs/RUNBOOK_CORE.md)、[代码差异复查](docs/REVIEW_CORE_2026-10-06.md)。数据库升级至 schema 6；升级前停止旧进程并保存迁移前副本，旧二进制不能直接打开新库。
+## 本地启动
 
-前端已按用户指定的 SAfiles HTML 重做并精简页面文字，当前样式、实际操作结果与桌面/手机截图见 [SAfiles 前端对齐与精简](docs/UI_REFERENCE_2026-10-06.md)。
+使用 Go **1.27.3 或更新的修复版本**；模块最低 Go 1.26.10，推荐工具链由 go.mod 指定。两个仓库并列放置。
 
-搜索框与图标按钮修正、账户简介 Markdown 编辑和跨服务展示见 [搜索与账户简介 Markdown](docs/UI_SEARCH_PROFILE_2026-10-06.md)。
+```powershell
+# StarAccount 目录
+ go run ./cmd/staraccount init-dev
+ go run ./cmd/staraccount init-oidc
+ go run ./cmd/staraccount generate-invite
+ go run ./cmd/staraccount
+# AtlasSite 的另一终端
+ go run ./cmd/staratlas init-dev
+ go run ./cmd/staratlas init-oidc
+ go run ./cmd/staratlas
+```
 
-账户视觉、内容列表和操作反馈的后续改进及验证状态见 [界面与常用操作完善](docs/UI_POLISH_2026-10-07.md)。
+打开 http://127.0.0.1:4200，从星图发起登录。注册需要一次性邀请码；注册成功后立即离线保存恢复码，已有账户可在账户安全页验证密码后生成。不要混用 localhost 与 127.0.0.1。初始化不会覆盖已有配置与密钥，开发数据位于忽略的 `.local/`。
 
-一次执行两个仓库的 Go 测试、vet、漏洞扫描、构建及原始 HTTP 联调：
+## 检查和发布构建
 
 ```powershell
 pwsh -File scripts/check_core.ps1
+node scripts/test_ui_actions.cjs
+# 新输出目录；依次执行两端 test/vet/漏洞扫描、构建、双服务 HTTP 与 JS 回归
+python scripts/check_release.py --output .local/release-unique
 ```
 
-脚本不进行图形浏览器复现。真实部署、全天告警、获授权示例和邀请观察的实际状态见交付记录。
+Linux CI 可加 `--race`。release 目录包含 Linux amd64 程序、manifest.json、部署模板与运维脚本；manifest 记录两个仓库的 commit、未提交状态、工具链与 SHA-256。部署前将审阅通过的改动提交，使用明确版本重建，不发布 dirty 产物。双服务工作流 `.github/workflows/release.yml` 要求填写两个精确 commit 和账户仓库；私有账户仓库使用只读 `ACCOUNT_READ_TOKEN`。StarAccount 当前本地未配置远端，需要先创建并推送其仓库，才能运行这一远端工作流。
 
-## 启动
+2026-10-24 本地验收通过两端 test/vet、Go 1.27.3 下 govulncheck（可达漏洞 0）、双服务 HTTP/JS 回归、真实 Chrome 1440px/390px 注册与找回流程，以及 Ubuntu 24.04 子系统中采用临时可信 CA 的生产 HTTPS/OIDC 联调。Windows 未运行 race，服务器原生 Linux race、双服务完整联调及真实域名 Chrome 桌面/手机验收也已通过。站点现已部署至 https://atlas.runnewstar.xyz 和 https://account.runnewstar.xyz，服务器地址 38.246.251.26，SSH 12721，已验证整机重启后恢复。外部通知与异机恢复仍待接入实际目的地，当前仅有本机加密备份。
 
-需要 Go 1.26.9 或更新版本；`go.mod` 推荐工具链为 Go 1.27.2，CI 使用相同版本。Go 1.27 分支应使用 1.27.2 或更新补丁，默认 `GOTOOLCHAIN=auto` 会按模块配置选择工具链。在本目录执行：
+## 身份与访问规则
 
-```powershell
-go mod download
-go run ./cmd/staratlas init-dev
-go run ./cmd/staratlas
-```
+- [身份约定](docs/identity-contract.md)：OIDC、数据边界、撤销与降级行为。
 
-初始化只需一次，已有配置不会覆盖。打开 http://127.0.0.1:4200 。
-新星账户按其 README 在另一终端启动。不要混用 localhost 和 127.0.0.1，Host 校验严格匹配配置。
-退出服务按 Ctrl+C。开发数据与配置保存在忽略的 `.local/`，自动化测试使用临时目录。
-需要独立测试实例时将配置复制到 `.local/test.json`，修改 mode、端口、origin 和 database，再执行 `go run ./cmd/staratlas -config .local/test.json`。
-
-## 验证
-
-```powershell
-go test ./... -count=1
-go vet ./...
-go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
-```
-
-健康检查 `/health` 验证数据库连接。首页 `/` 和 `/config` 提供配置清单。
-未配置 OIDC 时 `/login`、`/auth/callback` 拒绝登录。配置后以 Authorization Code + PKCE 登录，`/api/v1/dev/session` 始终关闭，没有合成身份绕过入口。
-`/api/v1/session` 只输出当前星图身份和降级状态。星图不读取、保存、转发密码，也不读取账户数据库。
-
-见 [阶段交付](docs/S01-S02.md)、[身份契约](docs/identity-contract.md)、[配置清单](docs/configuration.md)、[审核记录](docs/review-S01-S02.md)。
-本地 OIDC 验收不代表真实邮件、HTTPS 或生产环境已完成。
-
-## S03 本地单点登录
-
-先在 StarAccount 目录执行 `go run ./cmd/staraccount init-oidc`，再在本目录执行：
-
-```powershell
-go run ./cmd/staratlas init-oidc
-go run ./cmd/staratlas
-```
-
-`init-oidc` 从相邻账户仓库复制一次客户端密钥到本仓库受限 `.local` 配置；运行时不读取账户仓库或其数据库。可追加参数指定账户客户端密钥文件路径，密钥内容不输出。账户 OIDC 签名私钥永不复制。
-账户服务也需重新启动。打开 `/login`，完成账户确认后进入星图 `/security`。安全页面提供本地退出、重新认证及撤销全部星图会话。
-后台每两秒拉取已认证身份事件，并在会话访问前同步；账户服务中断时既有会话继续普通读取，新登录和敏感操作暂停。
-
-双服务集成测试使用临时目录和随机端口，不访问演示数据、不外发邮件：
-
-```powershell
-go build -o bin/staratlas-s03.exe ./cmd/staratlas
-go -C ../StarAccount build -o bin/staraccount-s03.exe ./cmd/staraccount
-python scripts/test_s03.py --account-bin ../StarAccount/bin/staraccount-s03.exe --atlas-bin bin/staratlas-s03.exe
-```
-
-详见 [S03 交付与验收](docs/S03.md) 和 [S03 审核](docs/review-S03.md)。邀请码注册与真实 SMTP、域名和 HTTPS 属于 S04，当前 production 仍拒绝启动。
+首页、社群动态、个人内容、收藏、搜索和通知支持分页。当前发布策略保持全站 noindex，避免首轮邀请试运行被检索；公开收录应另行明确产品规则后开放。
