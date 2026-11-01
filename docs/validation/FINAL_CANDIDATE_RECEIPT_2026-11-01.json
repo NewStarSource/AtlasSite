@@ -1,0 +1,80 @@
+{
+  "source": {
+    "account": {
+      "commit": "3250bb63e67b21ed05a690a12b110c69b286014e",
+      "dirty": false
+    },
+    "atlas": {
+      "commit": "bd7f85a4ed929a4ab2403633c17fed5d18d31220",
+      "dirty": false
+    }
+  },
+  "sha256": {
+    "bin/staraccount": "51440c4e7be5e22ba227b0b88eb753b8298e7def7d8fad95e8da75f4812674ea",
+    "bin/staratlas": "02e2970500374f76043660abbc6090de190e68215774f10955749daa3167bc1c"
+  },
+  "verified_hashes": 54,
+  "document_files": 51,
+  "local_links": 94,
+  "license_files": 67,
+  "embedded_revisions_match": true,
+  "recorded_at": "2026-11-01T09:58:50.107278+00:00",
+  "community_wiki_browser": [
+    {
+      "label": "1440-js",
+      "status": "passed",
+      "stages": [
+        "三类社群工具草稿、发布、版本与撤下",
+        "发现页双身份修改冲突与输入保留",
+        "两类正式条目私有提交、审核、建议采纳、错误回填、退回重提、历史、多层讨论与下游撤回"
+      ]
+    },
+    {
+      "label": "390-js",
+      "status": "passed",
+      "stages": [
+        "三类社群工具草稿、发布、版本与撤下",
+        "发现页双身份修改冲突与输入保留",
+        "两类正式条目私有提交、审核、建议采纳、错误回填、退回重提、历史、多层讨论与下游撤回"
+      ]
+    },
+    {
+      "label": "1440-native",
+      "status": "passed",
+      "stages": [
+        "三类社群工具草稿、发布、版本与撤下",
+        "发现页双身份修改冲突与输入保留",
+        "两类正式条目私有提交、审核、建议采纳、错误回填、退回重提、历史、多层讨论与下游撤回"
+      ]
+    },
+    {
+      "label": "390-native",
+      "status": "passed",
+      "stages": [
+        "三类社群工具草稿、发布、版本与撤下",
+        "发现页双身份修改冲突与输入保留",
+        "两类正式条目私有提交、审核、建议采纳、错误回填、退回重提、历史、多层讨论与下游撤回"
+      ]
+    }
+  ],
+  "account_browser_pass_lines": [
+    "PASS real Chromium desktop/mobile registration, OIDC, recovery, security pages, keyboard overlays, no-JavaScript daily password change, cross-service revocation and overflow: 1440",
+    "PASS real Chromium desktop/mobile registration, OIDC, recovery, security pages, keyboard overlays, no-JavaScript daily password change, cross-service revocation and overflow: 390"
+  ],
+  "exit_codes": {
+    "release_builder": 0,
+    "account_browser": 0,
+    "community_wiki_browser": 0,
+    "linux_production_https": 0
+  },
+  "native_verification_sha256": {
+    "staraccount.exe": "4e800688ee2be5f1a1ecfd37456601953cc610a40143ada187aad992e3ad8778",
+    "staratlas.exe": "4ad5d0ae2883b655485f1ede862c7c9dce6cb1c0776c6f1ffe21d1ebbb0c720b"
+  },
+  "local_evidence_sha256": {
+    "release-20261101-final.log": "baf521d5a5b769ea9124f310f00bbf85e3a3b02a9879341b47aa0117d5b29767",
+    "final-browser-account.log": "c225aca8c062ac606ba7351b108dc95143068c381b792c16d43bbf83b237bc03",
+    "final-browser-community-wiki.log": "3802858a89c87cd19756f1af08fcca1e0fde6fdca9e179484b8c14e0fb46a93e",
+    "final-linux-https.log": "4221524007cac349b1a44d54e1b0b9a9200f9f53fce249be735aef853dc5f09e"
+  }
+}

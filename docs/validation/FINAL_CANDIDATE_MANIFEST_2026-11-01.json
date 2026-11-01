@@ -1,0 +1,87 @@
+{
+  "target": "linux/amd64",
+  "go": {
+    "account": "go version go1.27.3 windows/amd64",
+    "atlas": "go version go1.27.3 windows/amd64"
+  },
+  "source": {
+    "account": {
+      "commit": "3250bb63e67b21ed05a690a12b110c69b286014e",
+      "dirty": false
+    },
+    "atlas": {
+      "commit": "bd7f85a4ed929a4ab2403633c17fed5d18d31220",
+      "dirty": false
+    }
+  },
+  "documents": {
+    "entry": "README.md",
+    "policy_references": [
+      "SA1-\u793e\u7fa4\u3001\u5185\u5bb9\u4e0e\u6d3b\u52a8\u89c4\u5219-v2.md",
+      "SA2-\u81ea\u6cbb\u4e0e\u516c\u5171\u6cbb\u7406\u89c4\u5219-v2.md",
+      "SA3-\u9690\u79c1\u3001\u6570\u636e\u4e0e\u516c\u5171API\u653f\u7b56-v2.md",
+      "SA5-\u661f\u56fe Wiki \u6761\u76ee\u6a21\u677f-v2.md",
+      "SA6-\u661f\u56fe Wiki \u534f\u4f5c\u89c4\u5219-v2.md",
+      "TECH-17-\u661f\u56fe\u6d4b\u8bd5\u4e0a\u7ebf\u4e0e\u9996\u7248\u8303\u56f4\u89c4\u8303-v1.md"
+    ],
+    "sha256": {
+      "LICENSE": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "NOTICE.md": "07239ef7eb4d86f6ff28ddb108272a7118f5b9fa38ef7f63a5e94d06816cad8f",
+      "projects/AtlasSite/docs/DEVELOPMENT_2026-11.md": "494b39373689d8a18e491ce91231a04fff726667065c155000b0bbf7e6e7c072",
+      "projects/AtlasSite/docs/identity-contract.md": "29a98e23198a60c051a86eb6d43f0eea48eb106507a507cb49f6a0e8142490fd",
+      "projects/AtlasSite/docs/INTERNAL_OPERATIONS_2026-11.md": "b01a6ba5e1fd981731851c281f90a0e5e4e062f11f65c8e63d02a9d8bf456e09",
+      "projects/AtlasSite/docs/RELEASE_NOTES_2026-10.md": "1181be60af31cc9d66e4c682535eb90a8621fac5229033945d39523c9a237666",
+      "projects/AtlasSite/docs/RELEASE_PLAN_2026-11.md": "6452445dade7ba531798b981e568c063703cdc6e04d1b402840da6e11828b2d8",
+      "projects/AtlasSite/docs/validation/COMMUNITY_WIKI_BROWSER_2026-11-01.json": "d85976b430acfc2e3e30f984721135e92a07e09998179227c0b8a9712c6157de",
+      "projects/AtlasSite/docs/validation/COMMUNITY_WIKI_BROWSER_2026-11-01.md": "bcaf23e89e8fceb4af6932b1eb906dd507d33f251a1ce22104cd015dea479054",
+      "projects/AtlasSite/docs/validation/LICENSE_INVENTORY_2026-11-01.json": "2103a7cca61918728617d4c8d748bed4820e6ed977c4cad09e050521e92d06c5",
+      "projects/AtlasSite/docs/validation/LINUX_SOURCE_SCAN_2026-11-01.json": "bc30e64603889fcd005b0d5d7717058fd93f6103856742559a0b703d27a7a079",
+      "projects/AtlasSite/docs/validation/PRODUCTION_AUDIT_2026-11-01.md": "a9e788e1653f35e04d144b4d4584747b11a89ec62c0065b2588a39cc7a091500",
+      "projects/AtlasSite/docs/validation/RELEASE_CANDIDATE_2026-11-01.json": "dfc9d7fc39621a72960cc61168b87c7a2dd188f59ae59735add5cb9e45aff267",
+      "projects/AtlasSite/docs/validation/RELEASE_PACKAGING_2026-11-01.md": "5c938265194990993f901591a8894243683acaba329b86a061a0170061fbe253",
+      "projects/AtlasSite/docs/validation/RELEASE_VALIDATION_2026-11-01.md": "d17b753a766301f34c73a34ebb8d6f874f8472084e0fd7ad206df71a83d18423",
+      "projects/AtlasSite/docs/validation/screenshots/community-wiki/tool-announcement-form-390-native.png": "dd6bdf2ec42f88e28d7a48c92dd24a04e16720b7843799c1320a5baaf2e251c8",
+      "projects/AtlasSite/docs/validation/screenshots/community-wiki/tool-discussion-public-390-native.png": "570ac112e231efd7066d0b5dc23d818d6a7a8a2e789fa8a53765e001c502acce",
+      "projects/AtlasSite/docs/validation/screenshots/community-wiki/wiki-community-public-1440-js.png": "a8c070b8285073a4ecf5055387b84c46b0ac5f44e0f59e271ed33d632667fe13",
+      "projects/AtlasSite/docs/validation/screenshots/community-wiki/wiki-community-suggestion-review-390-native.png": "f0ca4403f5acc6589eba74de7d7a2aba0c8f01536ca03d66b6c13f3e48585483",
+      "projects/AtlasSite/docs/validation/screenshots/community-wiki/wiki-work-discussion-390-native.png": "6730b1796272f32424ac9f4421c6adf1ee920990fd979e3eb7e3e02ac986d2d5",
+      "projects/AtlasSite/docs/validation/screenshots/community-wiki/wiki-work-form-390-native.png": "e661220cc5a6284c3cbefe9e2b780737b80c16b79e7db97b5f65a6d7654a6cab",
+      "projects/AtlasSite/docs/validation/screenshots/community-wiki/wiki-work-history-390-native.png": "8e26f3b5e66c191eb843f340841355602fdf7cb61796ca32008f7d2006bc72f9",
+      "projects/AtlasSite/docs/validation/screenshots/community-wiki/wiki-work-resubmit-390-native.png": "de00b8cd318c533311e61729e8f173a19a62c7ae686cfc7af350299141db1758",
+      "projects/AtlasSite/docs/validation/screenshots/home-1440-20261101.png": "8011226bd33634a2811c521ca7a8a0c2ffae7bcba41edbcf75e880a7c57609e5",
+      "projects/AtlasSite/docs/validation/screenshots/home-390-20261101.png": "7c7a50fccbaeaf753670b34dec93c2dea1e821c0be497b10c1863fcf7d75e1a1",
+      "projects/AtlasSite/docs/validation/screenshots/security-1440-20261101.png": "f353b6b0acb8021b60fbd9f9e483782eca12f799919b02c4cb28240e2d7e4ba2",
+      "projects/AtlasSite/docs/validation/screenshots/security-390-20261101.png": "0f8ba01c83d6e3e32c5d714d3339037af6a7b43868cec483aea0e9598bbe5cbf",
+      "projects/AtlasSite/docs/validation/screenshots/security-password-1440-20261101.png": "c4075d16cab1295d049a44182b48bd6452e15d280c0cec3b8eb67401bc0968a6",
+      "projects/AtlasSite/docs/validation/screenshots/security-password-390-20261101.png": "3332c55bdf9a7d28e7bc0ad22e1e4889887b4f9e53f02fce5f9a3167aa3afb3e",
+      "projects/AtlasSite/docs/validation/screenshots/security-recovery-1440-20261101.png": "db9f8134038ad266f9912313bf75e96028f76c422e26c9f5a0fb66c124fdea47",
+      "projects/AtlasSite/docs/validation/screenshots/security-recovery-390-20261101.png": "604fd9352ceeb700d2bb0ba77fad03ddf478c4790dab743d5c5f771d74a2a343",
+      "projects/AtlasSite/docs/validation/WIKI_EXAMPLES_2026-11-01.md": "bff04dc5d9149b1badc16012d751e94a6245178fe7adbccf36005398ef55302a",
+      "projects/AtlasSite/docs/WIKI_PROTOTYPE.md": "d9fa243a8f6b22e4e87d2896736fd8d0b71f5c8d9bc6ea1fc2c29274d714a2d3",
+      "projects/AtlasSite/examples/wiki/2026-11-public-samples.json": "c3b622d876df9e0be70bc637b64ab84625f96c4623fde551db66b4be65de8a9d",
+      "projects/AtlasSite/examples/wiki/README.md": "29b4a0a394892b8fc29caaaff67ff4abaf094dc4801fdb4c41542324ee3a801c",
+      "projects/AtlasSite/LICENSE": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "projects/AtlasSite/NOTICE.md": "07239ef7eb4d86f6ff28ddb108272a7118f5b9fa38ef7f63a5e94d06816cad8f",
+      "projects/AtlasSite/README.md": "2207be219f988592f3d5b5229793fd635924d7587580ceac14a446e3b1d599f9",
+      "projects/SAfiles/SA1-\u793e\u7fa4\u3001\u5185\u5bb9\u4e0e\u6d3b\u52a8\u89c4\u5219-v2.md": "c2ebcdd1dd8fd4409d1c6ee32c3dfef76bcf476f2718831acdb12fdb0cb43d2e",
+      "projects/SAfiles/SA2-\u81ea\u6cbb\u4e0e\u516c\u5171\u6cbb\u7406\u89c4\u5219-v2.md": "f0cad48f0ad56958ff940fe10c0385ac11e63519004d18839b7a130d76f9fb77",
+      "projects/SAfiles/SA3-\u9690\u79c1\u3001\u6570\u636e\u4e0e\u516c\u5171API\u653f\u7b56-v2.md": "7e2302530f7d460fbd50686e45b6f8710b6712cc31d5650b977a431086d3f0e8",
+      "projects/SAfiles/SA5-\u661f\u56fe Wiki \u6761\u76ee\u6a21\u677f-v2.md": "c7d590f37c032391ef0862edb014dc4a932aa08e91357ebd32bb5d6800e31541",
+      "projects/SAfiles/SA6-\u661f\u56fe Wiki \u534f\u4f5c\u89c4\u5219-v2.md": "4eacaf58623431f46e6b26fb42c65b658a9fce19cab489b64aca906ee22e6c2d",
+      "projects/SAfiles/TECH-17-\u661f\u56fe\u6d4b\u8bd5\u4e0a\u7ebf\u4e0e\u9996\u7248\u8303\u56f4\u89c4\u8303-v1.md": "fd4d485e056f85cfd58d0af82a91452ccc7ce501670f4080ac656c3ed5942de4",
+      "projects/StarAccount/docs/DEVELOPMENT_2026-11.md": "2bfd982ca5e4da1494bf5f009b5cc7e624a3b2df483a40cf4bc63c4cc2fe9889",
+      "projects/StarAccount/docs/RELEASE_NOTES_2026-10.md": "87966f4db59727439acfa0ea4a9432c80353808c4e49a4c26ccbdca1221d3fcf",
+      "projects/StarAccount/docs/RELEASE_PLAN_2026-11.md": "fed622a73375f779772706cf16f78946a5366ae38b11e603de9b149ee8de6238",
+      "projects/StarAccount/LICENSE": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "projects/StarAccount/NOTICE.md": "819d6a7c0e1e515b33fd4b27e542d966e7759b9e616aac30d8f7ac130de9e7a7",
+      "projects/StarAccount/README.md": "d7b088bf8533b138befb323958c24fa974768763952b08e9a1ae57002edaa394",
+      "README.md": "95ea30f3d8c335c012b739724caf37cc7012a9fa769863b466ece66d0f63734e"
+    }
+  },
+  "license_inventory": "licenses/inventory.json",
+  "license_inventory_sha256": "2103a7cca61918728617d4c8d748bed4820e6ed977c4cad09e050521e92d06c5",
+  "sha256": {
+    "bin/staraccount": "51440c4e7be5e22ba227b0b88eb753b8298e7def7d8fad95e8da75f4812674ea",
+    "bin/staratlas": "02e2970500374f76043660abbc6090de190e68215774f10955749daa3167bc1c"
+  }
+}
