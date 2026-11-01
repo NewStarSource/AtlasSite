@@ -128,6 +128,14 @@ def main():
             recovery_result = expect(form_post(client, account, "/api/v1/security/recovery-code", {"password": password}), 200, "recovery code before password change")
             # The one-time secret stays in the isolated client, never in test output.
             recovery_code = re.search(r"<pre>([^<]+)</pre>", recovery_result[2]).group(1)
+            for path in ("/security", "/security/recovery"):
+                status_html = expect(client.request(account + path), 200, "security status page")[2]
+                assert "可用" in status_html and "有效至" in status_html
+                assert recovery_code not in status_html, "one-time recovery secret repeated in status page"
+            confirmation = expect(form_post(client, account, "/api/v1/security/reauthenticate", {"password": password}), 303, "native security confirmation")
+            assert confirmation[1]["Location"] == "/security"
+            assert "确认有效至" in expect(client.request(account + "/security"), 200, "return to security controls")[2]
+            print("PASS security status and native confirmation: metadata shown, one-time secret not repeated")
             replacement = "changed daily account password 456"
             expect(client.request(account + "/security/password"), 200, "password settings page")
             changed = form_post(client, account, "/api/v1/security/change-password", {"current_password": password, "password": replacement, "password_confirmation": replacement})
@@ -139,6 +147,7 @@ def main():
             expect(form_post(client, account, "/api/v1/auth/recover-password", {"username": username, "recovery_code": recovery_code, "password": "should never become password 789"}), 400, "old recovery code rejected after change")
             password = replacement
             authorize(client, account, atlas, username, password)
+            assert "未设置" in expect(client.request(account + "/security/recovery"), 200, "recovery state after password change")[2]
             authorize(client, account, atlas, username, password, form_post(client, atlas, "/auth/reauthenticate", {}))
             print("PASS daily password change: real form, old password/recovery code rejected, account and Atlas sessions revoked")
             expect(form_post(client, atlas, "/api/v1/me/deactivate", {"confirm": "deactivate", "retain_ids": kept}), 303, "cross-service deactivate")

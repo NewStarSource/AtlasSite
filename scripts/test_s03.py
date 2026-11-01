@@ -212,7 +212,8 @@ def main():
             form = browser.form(account + "/security")
             csrf_value = form.inputs["gorilla.csrf.Token"]
             expect(browser.request(account + "/api/v1/security/deactivate", {"gorilla.csrf.Token": csrf_value, "confirm": "deactivate"}), 403, "deactivate requires reauth")
-            expect(browser.request(account + "/api/v1/security/reauthenticate", {"gorilla.csrf.Token": csrf_value, "password": password}), 200, "reauthenticate")
+            confirmed = expect(browser.request(account + "/api/v1/security/reauthenticate", {"gorilla.csrf.Token": csrf_value, "password": password}), 303, "reauthenticate")
+            assert confirmed[1]["Location"] == "/security"
             expect(browser.request(account + "/api/v1/security/deactivate", {"gorilla.csrf.Token": csrf_value, "confirm": "deactivate"}), 200, "deactivate")
             assert not json.loads(browser.request(atlas + "/api/v1/session")[2])["authenticated"]
             expect(browser.request(account + "/api/v1/auth/login", {"username":username,"password":password}, True),401,"deactivated login")
