@@ -3,6 +3,7 @@ import argparse
 from datetime import date, timedelta
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -124,6 +125,22 @@ def main():
             start = form_post(client, atlas, "/auth/reauthenticate", {})
             authorize(client, account, atlas, username, password, start)
             check_management(client, account, atlas, account_bin, atlas_bin, account_dir, atlas_dir, owner)
+            recovery_result = expect(form_post(client, account, "/api/v1/security/recovery-code", {"password": password}), 200, "recovery code before password change")
+            # The one-time secret stays in the isolated client, never in test output.
+            recovery_code = re.search(r"<pre>([^<]+)</pre>", recovery_result[2]).group(1)
+            replacement = "changed daily account password 456"
+            expect(client.request(account + "/security/password"), 200, "password settings page")
+            changed = form_post(client, account, "/api/v1/security/change-password", {"current_password": password, "password": replacement, "password_confirmation": replacement})
+            expect(changed, 200, "daily password change")
+            assert "密码已修改" in changed[2]
+            assert not json.loads(client.request(account + "/api/v1/auth/session")[2])["authenticated"], "account session survived password change"
+            assert not json.loads(client.request(atlas + "/api/v1/session")[2])["authenticated"], "atlas session survived password change"
+            expect(client.request(account + "/api/v1/auth/login", {"username": username, "password": password}, True), 401, "old password rejected")
+            expect(form_post(client, account, "/api/v1/auth/recover-password", {"username": username, "recovery_code": recovery_code, "password": "should never become password 789"}), 400, "old recovery code rejected after change")
+            password = replacement
+            authorize(client, account, atlas, username, password)
+            authorize(client, account, atlas, username, password, form_post(client, atlas, "/auth/reauthenticate", {}))
+            print("PASS daily password change: real form, old password/recovery code rejected, account and Atlas sessions revoked")
             expect(form_post(client, atlas, "/api/v1/me/deactivate", {"confirm": "deactivate", "retain_ids": kept}), 303, "cross-service deactivate")
             assert not json.loads(client.request(atlas + "/api/v1/session")[2])["authenticated"]
             anonymous = Browser()
