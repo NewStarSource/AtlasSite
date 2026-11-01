@@ -1,0 +1,98 @@
+{
+  "verified_at": "2026-11-01",
+  "license": "CC BY-SA 4.0",
+  "scope": "内部演练的原创简述，来源页面及外部作品保留原许可；不含图片、人物资料和私下材料。",
+  "samples": [
+    {
+      "key": "godot-community",
+      "kind": "community",
+      "title": "Godot 开发者与用户社群",
+      "summary": "围绕 Godot 的游戏开发交流与引擎协作网络。",
+      "status_value": "unknown",
+      "first_verified_at": "2026-11-01",
+      "body": "## 它是什么\n\nGodot 官方社群目录列出面向代码贡献者和游戏开发者的多个交流空间，区分基金会维护的空间和用户自行组织的空间。[^1]\n\n## 如何接触\n\n可从该目录进入 Godot Forum、用户社群及贡献者交流平台；各空间的参加规则需要分别阅读。[^1]",
+      "sources": [
+        {"id": "1", "title": "Godot 官方社群目录", "url": "https://godotengine.org/community/", "accessed": "2026-11-01"}
+      ],
+      "suggested_summary": "由多个官方及用户自组织空间组成的 Godot 开发交流与协作网络。",
+      "suggestion_evidence": "官方社群目录分别列出 Official communities、User-supported communities 与 Engine development platforms，不宜把它们写成统一成员组织。"
+    },
+    {
+      "key": "godot-engine",
+      "kind": "work",
+      "title": "Godot Engine",
+      "summary": "用于二维和三维游戏开发的开源引擎。",
+      "status_value": "public",
+      "work_type": "公开软件 · 游戏引擎",
+      "creator": "Godot 贡献者",
+      "public_url": "https://godotengine.org/",
+      "body": "## 简介\n\nGodot Engine 是公开的开源游戏引擎，官方首页介绍二维、三维及跨平台项目的开发能力。[^1]\n\n## 公开展示方式\n\n官方网站提供下载和文档入口。本示例不记录随时可能变化的最新版本号，也不转载游戏或宣传图片。[^1]",
+      "sources": [
+        {"id": "1", "title": "Godot Engine 官方首页", "url": "https://godotengine.org/", "accessed": "2026-11-01"}
+      ],
+      "suggested_summary": "提供二维、三维及跨平台项目开发能力的开源游戏引擎。",
+      "suggestion_evidence": "官方首页同时介绍二维、三维和跨平台项目，摘要补充该范围，不涉及特定版本承诺。"
+    },
+    {
+      "key": "krita-community",
+      "kind": "community",
+      "title": "Krita 创作与协作社群",
+      "summary": "围绕 Krita 绘画、使用交流和项目贡献的协作网络。",
+      "status_value": "unknown",
+      "first_verified_at": "2026-11-01",
+      "body": "## 主要讨论与创作\n\nKrita 官方参与指南列出软件测试、翻译、开发、文档以及作品和资源分享等参与方式。[^1]\n\n## 如何接触\n\n指南提供 Krita Artists 论坛入口，用于交流作品、教程、笔刷等资源。本记录不代表已核验某个空间的成员资格或代表身份。[^1]",
+      "sources": [
+        {"id": "1", "title": "Krita 官方参与指南", "url": "https://krita.org/en/get-involved/", "accessed": "2026-11-01"}
+      ],
+      "suggested_summary": "连接 Krita 作品交流、资源分享及测试、翻译和文档贡献的协作网络。",
+      "suggestion_evidence": "官方参与指南列出 Artwork、Tutorials/Brushes、Testers、Translators 与 Documentation，摘要据此细化参与方式。"
+    },
+    {
+      "key": "krita-software",
+      "kind": "work",
+      "title": "Krita",
+      "summary": "面向数字绘画创作的公开开源软件。",
+      "status_value": "public",
+      "work_type": "公开软件 · 数字绘画",
+      "creator": "Krita 贡献者",
+      "public_url": "https://krita.org/en/",
+      "body": "## 简介\n\nKrita 是公开的开源绘画软件，官方首页列出多种笔刷、图层、绘画辅助和动画工具。[^1]\n\n## 版权与授权说明\n\n官方网站说明项目软件使用 GNU GPL。本 Wiki 示例只原创概述公开事实，不把软件许可套用于外部作品或宣传图。[^1]",
+      "sources": [
+        {"id": "1", "title": "Krita 官方首页", "url": "https://krita.org/en/", "accessed": "2026-11-01"}
+      ],
+      "suggested_summary": "提供笔刷、图层、绘画辅助与动画工具的开源绘画软件。",
+      "suggestion_evidence": "官方首页的功能介绍列出笔刷、图层、绘画辅助及动画工具，摘要仅概述这些公开能力。"
+    },
+    {
+      "key": "python-community",
+      "kind": "community",
+      "title": "Python 编程社群",
+      "summary": "围绕 Python 学习、编程与项目交流的多个社群空间。",
+      "status_value": "unknown",
+      "first_verified_at": "2026-11-01",
+      "body": "## 它是什么\n\nPython 官方社群页列出会议、PySlackers、Python Discord 和 IRC 等不同参与入口。它们是多个交流空间，不据此认定统一成员资格。[^1]\n\n## 主要交流方式\n\nPython 官方介绍页还列出会议、聚会、代码协作、文档和邮件列表等接触方式。本记录不推断各空间当前活跃人数。[^2]",
+      "sources": [
+        {"id": "1", "title": "Python 官方社群页", "url": "https://www.python.org/community/", "accessed": "2026-11-01"},
+        {"id": "2", "title": "Python 官方介绍页", "url": "https://www.python.org/about/", "accessed": "2026-11-01"}
+      ],
+      "suggested_summary": "通过会议、聚会、论坛与聊天空间开展交流的 Python 编程社群网络。",
+      "suggestion_evidence": "官方介绍页和社群页分别列出会议、聚会及多个交流空间；不把目录中的空间当作一个统一组织。"
+    },
+    {
+      "key": "python-language",
+      "kind": "work",
+      "title": "Python",
+      "summary": "具有公开文档和开源实现的编程语言项目。",
+      "status_value": "public",
+      "work_type": "公开软件 · 编程语言",
+      "creator": "Python 贡献者",
+      "public_url": "https://www.python.org/",
+      "body": "## 简介\n\nPython 官方介绍页提供学习文档与入门入口，并列举 Web、科学计算、教育及软件开发等应用方向。[^1]\n\n## 公开展示方式\n\n该页说明 Python 采用开源许可，并链接到文档、下载和许可资料；本示例不承诺某一版本或平台的支持周期。[^1]",
+      "sources": [
+        {"id": "1", "title": "Python 官方介绍页", "url": "https://www.python.org/about/", "accessed": "2026-11-01"}
+      ],
+      "suggested_summary": "提供公开文档与开源实现，应用于 Web、科学计算和教育等领域的编程语言项目。",
+      "suggestion_evidence": "Python 官方介绍页列出相应应用方向及开源许可说明，摘要仅据此补充用途。"
+    }
+  ]
+}

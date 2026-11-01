@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -113,11 +114,12 @@ func (app *App) submitWikiSuggestion(w http.ResponseWriter, r *http.Request) {
 		g.Sources, err = parseWikiSources(r.FormValue("sources"))
 	}
 	if err != nil || g.Base < 1 || suggestionTarget(g.Target) == "" || g.Proposed == "" || g.Evidence == "" || !checkText(g.Old, 30000) || !checkText(g.Proposed, 30000) || !checkText(g.Evidence, 2000) || r.FormValue("license") != "CC BY-SA 4.0" {
-		fail(w, errInput)
+		app.wikiSuggestionError(w, r, errInput, "")
 		return
 	}
 	app.opsMu.Lock()
-	defer app.opsMu.Unlock()
+	unlock := sync.OnceFunc(app.opsMu.Unlock)
+	defer unlock()
 	tx, err := app.collaborationTransaction(r, i, false, true)
 	if err != nil {
 		fail(w, err)
@@ -134,7 +136,9 @@ func (app *App) submitWikiSuggestion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err = suggestionCandidate(current, g, g.Proposed); err != nil {
-		fail(w, err)
+		tx.Rollback()
+		unlock()
+		app.wikiSuggestionError(w, r, err, "")
 		return
 	}
 	sources, _ := json.Marshal(g.Sources)
@@ -145,7 +149,13 @@ func (app *App) submitWikiSuggestion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if rejected > 0 {
-		respond(w, 400, map[string]string{"code": "NEW_EVIDENCE_REQUIRED", "message": "相同依据已被退回，请提供新依据后再提交。"})
+		tx.Rollback()
+		unlock()
+		if strings.Contains(r.Header.Get("Accept"), "application/json") {
+			respond(w, 400, map[string]string{"code": "NEW_EVIDENCE_REQUIRED", "message": "相同依据已被退回，请提供新依据后再提交。"})
+		} else {
+			app.wikiSuggestionError(w, r, errInput, "相同依据已被退回，请提供新依据后再提交。")
+		}
 		return
 	}
 	now := time.Now().Unix()

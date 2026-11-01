@@ -1,9 +1,14 @@
 package atlas
 
 import (
+	"database/sql"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/go-chi/chi/v5"
 )
 
 func (app *App) wikiSuggestionsHTML(r *http.Request, v wikiVersion, i *Identity) (string, error) {
@@ -101,19 +106,59 @@ func (app *App) wikiSuggestionsHTML(r *http.Request, v wikiVersion, i *Identity)
 		body += `<p><a href="/wiki/` + pathID(v.PageID) + `">查看全部建议与讨论</a></p>`
 	}
 	if i != nil {
-		body += `<details class="admin-add"><summary>提出修改建议</summary>` + formStart(r, "/wiki/"+pathID(v.PageID)+"/suggestions") + field("base", strconv.Itoa(v.Number)) + `<label>位置<select name="target">`
-		for _, target := range []string{"title", "summary", "body", "status", "first_verified_at", "work_type", "creator", "public_url"} {
-			if v.Kind == "community" && (target == "work_type" || target == "creator" || target == "public_url") {
-				continue
-			}
-			if v.Kind == "work" && (target == "status" || target == "first_verified_at") {
-				continue
-			}
-			body += `<option value="` + target + `">` + suggestionTarget(target) + `</option>`
-		}
-		body += `</select></label><label>原段落（仅段落替换时填写）<textarea name="old_text" maxlength="30000"></textarea></label><label>建议内容<textarea name="proposed" maxlength="30000" required></textarea></label><label>依据与说明<textarea name="evidence" maxlength="2000" required></textarea></label><details class="field-help"><summary>新增来源与填写说明</summary><label>新增公开来源<textarea name="sources" maxlength="20000" placeholder="2 | 新来源标题 | https://example.com | 2026-11-01"></textarea></label><p>正文仍使用脚注，新增编号不能与当前来源重复。正文位置填入原段落时只替换该段，否则建议替换整篇正文。新建议公开显示，退回后重提须提供新依据。撤回建议不自动撤销已发布版本。</p></details><label class="check-row"><input type="checkbox" name="license" value="CC BY-SA 4.0" required><span>按 CC BY-SA 4.0 提交，仅使用可公开材料</span></label><button class="btn btn-primary">提交建议</button></form></details>`
+		body += wikiSuggestionFormHTML(r, v, nil)
 	}
 	return body + `</section>`, nil
+}
+
+func wikiSuggestionFormHTML(r *http.Request, v wikiVersion, values url.Values) string {
+	base, open := strconv.Itoa(v.Number), ""
+	if values != nil {
+		base, open = values.Get("base"), " open"
+	}
+	body := `<details class="admin-add" id="wiki-suggestion-form"` + open + `><summary>提出修改建议</summary>` + formStart(r, "/wiki/"+pathID(v.PageID)+"/suggestions") + field("base", base) + `<label>位置<select name="target">`
+	for _, target := range []string{"title", "summary", "body", "status", "first_verified_at", "work_type", "creator", "public_url"} {
+		if v.Kind == "community" && (target == "work_type" || target == "creator" || target == "public_url") {
+			continue
+		}
+		if v.Kind == "work" && (target == "status" || target == "first_verified_at") {
+			continue
+		}
+		selected := ""
+		if values.Get("target") == target {
+			selected = " selected"
+		}
+		body += `<option value="` + target + `"` + selected + `>` + suggestionTarget(target) + `</option>`
+	}
+	body += `</select></label><label>原段落（仅段落替换时填写）<textarea name="old_text" maxlength="30000">` + esc(values.Get("old_text")) + `</textarea></label><label>建议内容<textarea name="proposed" maxlength="30000" required>` + esc(values.Get("proposed")) + `</textarea></label><label>依据与说明<textarea name="evidence" maxlength="2000" required>` + esc(values.Get("evidence")) + `</textarea></label><details class="field-help"><summary>新增来源与填写说明</summary><label>新增公开来源<textarea name="sources" maxlength="20000" placeholder="2 | 新来源标题 | https://example.com | 2026-11-01">` + esc(values.Get("sources")) + `</textarea></label><p>正文仍使用脚注，新增编号不能与当前来源重复。正文位置填入原段落时只替换该段，否则建议替换整篇正文。新建议公开显示，退回后重提须提供新依据。撤回建议不自动撤销已发布版本。</p></details><label class="check-row"><input type="checkbox" name="license" value="CC BY-SA 4.0" required><span>按 CC BY-SA 4.0 提交，仅使用可公开材料</span></label><button class="btn btn-primary">提交建议</button></form></details>`
+	return body
+}
+
+func (app *App) wikiSuggestionError(w http.ResponseWriter, r *http.Request, err error, note string) {
+	if (err != errInput && err != errConflict) || strings.Contains(r.Header.Get("Accept"), "application/json") {
+		fail(w, err)
+		return
+	}
+	id := chi.URLParam(r, "wiki")
+	if !wikiReadable(app.db, id) {
+		fail(w, sql.ErrNoRows)
+		return
+	}
+	v, e := loadWikiVersion(app.db, id, 0)
+	if e != nil {
+		fail(w, e)
+		return
+	}
+	status := 400
+	if err == errConflict {
+		status = 409
+		note = "公开版本已变化或原段落无法唯一匹配。本次输入尚未保存，请保留输入并核对最新版本。"
+	}
+	if note == "" {
+		note = "请检查建议内容、依据、脚注、新来源编号与许可确认。"
+	}
+	body := wikiNav() + `<h1>修改建议 · ` + esc(v.Title) + `</h1><p role="alert" class="notice">` + esc(note) + `</p><p><a href="/wiki/` + pathID(id) + `#wiki-suggestion-form">载入最新版本</a></p>` + wikiSuggestionFormHTML(r, v, r.PostForm)
+	app.renderPageStatus(w, r, status, "修改建议", "wiki", body, "")
 }
 
 func (app *App) wikiSuggestionQueue(r *http.Request) (string, error) {

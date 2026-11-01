@@ -34,7 +34,18 @@ func (app *App) wikiEntryEditor(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		var err error
-		if wikiReadable(app.db, id) {
+		submission := r.URL.Query().Get("submission")
+		if submission != "" {
+			n, e := strconv.Atoi(submission)
+			if e != nil || n < 1 {
+				fail(w, sql.ErrNoRows)
+				return
+			}
+			v, err = loadWikiVersion(app.db, id, n)
+			if err == nil && (v.Editor != i.ID || !submissionVisible(app.db, v, i.ID) || (v.Review != "pending" && v.Review != "rejected")) {
+				err = sql.ErrNoRows
+			}
+		} else if wikiReadable(app.db, id) {
 			v, err = loadWikiVersion(app.db, id, 0)
 		} else {
 			var n int
@@ -51,9 +62,15 @@ func (app *App) wikiEntryEditor(w http.ResponseWriter, r *http.Request) {
 			fail(w, errForbidden)
 			return
 		}
-		v.Base = v.Published
+		if submission == "" {
+			v.Base = v.Published
+		}
 	}
-	app.renderWikiEntryEditor(w, r, i, v, creating, 200, "")
+	note := ""
+	if !creating && v.Base != v.Published {
+		note = "这份原稿基于较旧的公开版本。请保留输入并载入最新版本，核对差异后再提交。"
+	}
+	app.renderWikiEntryEditor(w, r, i, v, creating, 200, note)
 }
 
 func (app *App) wikiEntryError(w http.ResponseWriter, r *http.Request, i *Identity, v wikiVersion, creating bool, err error) {
@@ -206,7 +223,7 @@ func (app *App) wikiSubmissionPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if v.Editor == i.ID && (v.Review == "pending" || v.Review == "rejected") {
-		body += `<div class="action-row"><a href="/wiki/` + pathID(id) + `/propose">重新提交</a></div>` + formStart(r, "/wiki/"+pathID(id)+"/submissions/"+strconv.Itoa(number)+"/withdraw") + `<button class="btn btn-secondary">撤回这次提交</button></form>`
+		body += `<div class="action-row"><a href="/wiki/` + pathID(id) + `/propose?submission=` + strconv.Itoa(number) + `">重新提交</a></div>` + formStart(r, "/wiki/"+pathID(id)+"/submissions/"+strconv.Itoa(number)+"/withdraw") + `<button class="btn btn-secondary">撤回这次提交</button></form>`
 	}
 	if v.Review == "pending" && wikiReviewer(app.db, i.ID) {
 		disabled := ""

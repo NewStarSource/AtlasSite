@@ -508,3 +508,74 @@ func TestWikiSuggestionRecoveryDecisionAndRestrictedCleanup(t *testing.T) {
 		})
 	}
 }
+
+func TestWikiRejectedDraftReopensOwnedOriginalWithoutRebasing(t *testing.T) {
+	_, author, other, admin, community := entrySetup(t)
+	id := submitEntry(t, author, "community", "退回原稿", community)
+	reviewEntry(t, admin, id, 1, "accept", "通过")
+	v := wikiEntryValues("community", id, "退回原稿", community, 1, 1)
+	v.Set("body", "退回稿的独立输入。[^1]")
+	mustStatus(t, author.call("POST", "/wiki/"+id+"/propose", v, true), 303)
+	reviewEntry(t, admin, id, 2, "reject", "补充核对后重提")
+	path := "/wiki/" + id + "/propose?submission=2"
+	page := author.call("GET", path, nil, true)
+	mustStatus(t, page, 200)
+	if !strings.Contains(page.Body.String(), "退回稿的独立输入") || !strings.Contains(page.Body.String(), field("base", "1")) {
+		t.Fatal("rejected draft not refilled")
+	}
+	for _, c := range []*coreClient{other, admin} {
+		mustStatus(t, c.call("GET", path, nil, true), 404)
+	}
+	for _, n := range []string{"0", "invalid", "1"} {
+		mustStatus(t, author.call("GET", "/wiki/"+id+"/propose?submission="+n, nil, true), 404)
+	}
+	newer := wikiEntryValues("community", id, "退回原稿", community, 2, 1)
+	mustStatus(t, other.call("POST", "/wiki/"+id+"/propose", newer, true), 303)
+	reviewEntry(t, admin, id, 3, "accept", "更新公开版本")
+	page = author.call("GET", path, nil, true)
+	mustStatus(t, page, 200)
+	if !strings.Contains(page.Body.String(), "较旧的公开版本") || !strings.Contains(page.Body.String(), field("base", "1")) || !strings.Contains(page.Body.String(), field("version", "3")) {
+		t.Fatal("draft silently rebased")
+	}
+	v.Set("version", "3")
+	mustStatus(t, author.call("POST", "/wiki/"+id+"/propose", v, true), 409)
+	mustStatus(t, author.call("POST", "/wiki/"+id+"/submissions/2/withdraw", url.Values{}, true), 303)
+	mustStatus(t, author.call("GET", path, nil, true), 404)
+}
+
+func TestWikiSuggestionErrorsRetainFormAndOriginalBase(t *testing.T) {
+	app, author, other, admin, community := entrySetup(t)
+	id := submitEntry(t, author, "community", "建议纠错", community)
+	reviewEntry(t, admin, id, 1, "accept", "通过")
+	v := url.Values{"base": {"1"}, "target": {"body"}, "old_text": {"原段落"}, "proposed": {"保留输入 </textarea><script>alert(1)</script>[^missing]"}, "evidence": {"保留的依据"}, "sources": {"invalid source line"}, "license": {"CC BY-SA 4.0"}}
+	w := other.call("POST", "/wiki/"+id+"/suggestions", v, true)
+	mustStatus(t, w, 400)
+	for _, key := range []string{"old_text", "proposed", "evidence", "sources"} {
+		if !strings.Contains(w.Body.String(), esc(v.Get(key))) {
+			t.Fatal("lost field", key)
+		}
+	}
+	if strings.Contains(w.Body.String(), "<script>alert(1)</script>") {
+		t.Fatal("form echo injected markup")
+	}
+	var count int
+	if err := app.db.QueryRow("SELECT count(*) FROM wiki_suggestions").Scan(&count); err != nil || count != 0 {
+		t.Fatal("invalid suggestion saved", err)
+	}
+	newer := wikiEntryValues("community", id, "建议纠错", community, 1, 1)
+	mustStatus(t, author.call("POST", "/wiki/"+id+"/propose", newer, true), 303)
+	reviewEntry(t, admin, id, 2, "accept", "更新")
+	v.Set("sources", "")
+	v.Set("target", "summary")
+	v.Set("proposed", "旧基线的说明")
+	w = other.call("POST", "/wiki/"+id+"/suggestions", v, true)
+	mustStatus(t, w, 409)
+	if !strings.Contains(w.Body.String(), field("base", "1")) || !strings.Contains(w.Body.String(), "旧基线的说明") {
+		t.Fatal("conflict lost input or changed base")
+	}
+	if _, err := app.db.Exec("UPDATE wiki_pages SET state='hidden' WHERE id=?", id); err != nil {
+		t.Fatal(err)
+	}
+	v.Set("sources", "invalid source line")
+	mustStatus(t, other.call("POST", "/wiki/"+id+"/suggestions", v, true), 404)
+}
