@@ -44,3 +44,5 @@
 社群工具、账户安全页及 Wiki 的自动 HTTP 检查已各自记录，不能代替桌面、窄屏、键盘与关闭 JavaScript 的实际操作。Wiki 六个来源示例及真人试用步骤见[示例目录](../../examples/wiki/README.md)。实际参与者、操作结果及问题需要真实记录，不以脚本账号代替。
 
 当前图形工具启动曾被本机锁定的 A 盘阻断。环境恢复后再进行图形检查，不据此扩大内部开放范围。
+
+后续通过现有 Chromium 回归环境完成账户、社群工具和 Wiki 的桌面、窄屏、键盘及无 JavaScript 页面检查，见[候选验证](validation/RELEASE_VALIDATION_2026-11-01.md)及[社群/Wiki 记录](validation/COMMUNITY_WIKI_BROWSER_2026-11-01.md)。桌面控制工具的问题不再作为这些自动渲染检查未执行的理由，真人多人使用仍需实际记录。星图完整 race 及 IPv4 HTTPS 已在独立正常回环网络通过；主机回环异常本身未修改。

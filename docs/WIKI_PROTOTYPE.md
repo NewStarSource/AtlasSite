@@ -73,4 +73,6 @@ Wiki 的共同编辑贡献在账户注销后按许可保留，显示编辑时化
 
 已运行的验证及结果见[十一月开发记录](DEVELOPMENT_2026-11.md)。`scripts/test_core.py` 仅在临时合成实例开启 Wiki，使用真实 OIDC 会话和原生表单验证发现页、正式条目审核、建议采纳及附理由退回；`scripts/test_s03.py` 保持默认关闭并检查默认路由不可用。
 
-六个[公开来源示例](../../examples/wiki/README.md)已通过临时双服务及三个合成身份的表单演练，结果见[执行记录](validation/WIKI_EXAMPLES_2026-11-01.md)。图形浏览器、窄屏、键盘、关闭 JavaScript 的实际操作及真实多人试用仍待验收；自动演练不能替代实际参与者。
+六个[公开来源示例](../../examples/wiki/README.md)已通过临时双服务及三个合成身份的表单演练，结果见[执行记录](validation/WIKI_EXAMPLES_2026-11-01.md)。自动演练不能替代实际参与者试用。
+
+随后补充 Chromium 1440px/390px、JavaScript 开启及关闭共四组真实页面流程，覆盖工具维护、发现页冲突、正式提交、人工审核、建议修改、退回稿重提、版本和讨论。移动底栏遮挡确认框的问题已修复，见[页面验收](validation/COMMUNITY_WIKI_BROWSER_2026-11-01.md)。这些页面检查已经执行，真实多人试用继续待验收。

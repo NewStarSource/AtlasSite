@@ -2553,6 +2553,8 @@ td,th{padding:12px;text-align:left;border-bottom:1px solid var(--border-subtle);
 .error-container p{color:var(--text-secondary);font-size:var(--text-sm);margin:16px 0 24px}
 .error-container .action-row{justify-content:center}
 @media(max-width:768px){
+ html{scroll-padding-bottom:calc(88px + env(safe-area-inset-bottom))}
+ .main :is(input,textarea,select,button,summary,a){scroll-margin-block:24px calc(88px + env(safe-area-inset-bottom))}
  .layout{grid-template-columns:minmax(0,1fr)}
  .sidebar{padding:10px 8px;padding-bottom:calc(10px + env(safe-area-inset-bottom));gap:0}
  .sidebar>.logo,.sidebar-footer{display:none}

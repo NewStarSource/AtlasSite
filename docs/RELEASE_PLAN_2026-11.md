@@ -149,6 +149,8 @@ Wiki 第一批完成独立开关、发现页、来源脚注、版本与差异、
 
 候选与运行核对更新：本地完整候选构建及账户 Chromium 安全流程、无 JavaScript 改密和 IPv6 HTTPS 联调通过。账户 Linux race 通过，星图 Linux race 在当前 Ubuntu 的 IPv4 回环故障下未通过。线上只读确认服务和本机备份运行，数据库仍为账户 6、星图 7，外部告警和异机备份未配置。证据分别见[候选记录](validation/RELEASE_VALIDATION_2026-11-01.md)及[线上记录](validation/PRODUCTION_AUDIT_2026-11-01.md)。本月计划仍未完成，未部署候选。
 
+页面与 Linux 后续更新：社群工具及 Wiki 的桌面、窄屏、键盘、关闭 JavaScript 真实流程已验证，移动底栏遮挡确认框已修复。星图完整 race 和 IPv4 HTTPS 联调在一次性正常回环网络中通过，原主机路由未修改。详见[页面与 Linux 补充记录](validation/COMMUNITY_WIKI_BROWSER_2026-11-01.md)。真实参与者试用、实际外部告警及异机恢复尚未完成，不据此将整月计划记为完成。
+
 ## 参考资料
 
 - [2026.10 发行笔记](RELEASE_NOTES_2026-10.md)

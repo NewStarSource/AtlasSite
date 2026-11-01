@@ -41,7 +41,10 @@ jobs:
       - run: python AtlasSite/scripts/test_watchdog.py
       - run: npm install --prefix "$RUNNER_TEMP/newstar-browser" playwright@1.62.1
       - run: node "$RUNNER_TEMP/newstar-browser/node_modules/playwright/cli.js" install --with-deps chromium
-      - run: python AtlasSite/scripts/test_browser.py --account-bin release/bin/staraccount --atlas-bin release/bin/staratlas
+      - run: python AtlasSite/scripts/test_browser.py --account-bin release/bin/staraccount --atlas-bin release/bin/staratlas --artifacts release/validation/account-browser
+        env:
+          NODE_PATH: ${{ runner.temp }}/newstar-browser/node_modules
+      - run: python AtlasSite/scripts/test_community_wiki_browser.py --account-bin release/bin/staraccount --atlas-bin release/bin/staratlas --artifacts release/validation/community-wiki
         env:
           NODE_PATH: ${{ runner.temp }}/newstar-browser/node_modules
       - uses: actions/upload-artifact@v4
