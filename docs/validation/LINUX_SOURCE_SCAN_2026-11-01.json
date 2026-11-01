@@ -1,0 +1,52 @@
+{
+  "target": "linux/amd64",
+  "scan_mode": "source",
+  "launcher": "Windows executable with GOOS=linux GOARCH=amd64 CGO_ENABLED=0",
+  "services": {
+    "atlas": {
+      "config": {
+        "protocol_version": "v1.0.0",
+        "scanner_name": "govulncheck",
+        "scanner_version": "v1.8.0",
+        "db": "https://vuln.go.dev",
+        "db_last_modified": "2026-10-27T21:16:18Z",
+        "go_version": "go1.27.3",
+        "scan_level": "symbol",
+        "scan_mode": "source"
+      },
+      "finding_ids": [
+        "GO-2025-3884",
+        "GO-2026-4961",
+        "GO-2026-4962",
+        "GO-2026-5031",
+        "GO-2026-5032",
+        "GO-2026-5061",
+        "GO-2026-5062",
+        "GO-2026-5066",
+        "GO-2026-6222"
+      ],
+      "symbol_finding_ids": [],
+      "exit_code": 0,
+      "raw_sha256": "9725d1b8f7ea63812d3031f4c774f5b33c76205821cc0aa0e53dc42d7aecc5d5"
+    },
+    "account": {
+      "config": {
+        "protocol_version": "v1.0.0",
+        "scanner_name": "govulncheck",
+        "scanner_version": "v1.8.0",
+        "db": "https://vuln.go.dev",
+        "db_last_modified": "2026-10-27T21:16:18Z",
+        "go_version": "go1.27.3",
+        "scan_level": "symbol",
+        "scan_mode": "source"
+      },
+      "finding_ids": [
+        "GO-2025-3884",
+        "GO-2026-5932"
+      ],
+      "symbol_finding_ids": [],
+      "exit_code": 0,
+      "raw_sha256": "0a4f0441a5169d7e7b100af59ccd0ed3309d816809908c97d73c9a55a3d9e121"
+    }
+  }
+}

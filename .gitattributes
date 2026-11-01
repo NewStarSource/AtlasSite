@@ -5,3 +5,5 @@
 *.md text eol=lf
 *.html text eol=lf
 *.ps1 text eol=crlf
+# Keep reviewed policy snapshots byte-for-byte identical to their SHA-256 manifest.
+reference/SAfiles/*.md -text whitespace=cr-at-eol,-blank-at-eof

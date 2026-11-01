@@ -29,7 +29,7 @@ node scripts/test_ui_actions.cjs
 python scripts/check_release.py --output .local/release-unique
 ```
 
-Linux CI 可加 `--race`。release 目录包含 Linux amd64 程序、manifest.json、部署模板、运维脚本与 `licenses/`；manifest 记录两个仓库的 commit、未提交状态、工具链、二进制及许可清单摘要。部署前将审阅通过的改动提交，使用明确版本重建，不发布 dirty 产物。双服务工作流 `.github/workflows/release.yml` 要求填写两个精确 commit 和账户仓库；私有账户仓库使用只读 `ACCOUNT_READ_TOKEN`。两端本地均已配置 GitHub 远端，但远端是否包含本次提交及发布 CI 的实际结果需另行核验。
+Linux CI 可加 `--race`。release 目录包含 Linux amd64 程序、manifest.json、部署模板、运维脚本与 `licenses/`；`projects/AtlasSite`、`projects/StarAccount` 保留两端文档、月度记录和示例的相邻目录关系，首页提供阅读入口。manifest 记录两个仓库的 commit、工具链、二进制、许可和文档摘要。构建会拒绝未提交的工作区，并在验证结束时再次核对提交；只部署已审阅的干净版本。文档仅收录版本管理中的文件，包内链接缺失或越界会阻止交付。双服务工作流 `.github/workflows/release.yml` 要求填写两个精确 commit 和账户仓库；私有账户仓库使用只读 `ACCOUNT_READ_TOKEN`。两端本地均已配置 GitHub 远端，但远端是否包含本次提交及发布 CI 的实际结果需另行核验。
 
 2026-10-24 本地验收通过两端 test/vet、Go 1.27.3 下 govulncheck（可达漏洞 0）、双服务 HTTP/JS 回归、真实 Chrome 1440px/390px 注册与找回流程，以及 Ubuntu 24.04 子系统中采用临时可信 CA 的生产 HTTPS/OIDC 联调。Windows 未运行 race，服务器原生 Linux race、双服务完整联调及真实域名 Chrome 桌面/手机验收也已通过。站点现已部署至 https://atlas.runnewstar.xyz 和 https://account.runnewstar.xyz，服务器地址 38.246.251.26，SSH 12721，已验证整机重启后恢复。外部通知与异机恢复仍待接入实际目的地，当前仅有本机加密备份。
 

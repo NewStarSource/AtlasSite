@@ -1,0 +1,30 @@
+{
+  "source_directory": "../SAfiles",
+  "snapshot_date": "2026-11-01",
+  "files": {
+    "SA1-社群、内容与活动规则-v2.md": {
+      "sha256": "c2ebcdd1dd8fd4409d1c6ee32c3dfef76bcf476f2718831acdb12fdb0cb43d2e",
+      "version": "2.4"
+    },
+    "SA2-自治与公共治理规则-v2.md": {
+      "sha256": "f0cad48f0ad56958ff940fe10c0385ac11e63519004d18839b7a130d76f9fb77",
+      "version": "2.2"
+    },
+    "SA3-隐私、数据与公共API政策-v2.md": {
+      "sha256": "7e2302530f7d460fbd50686e45b6f8710b6712cc31d5650b977a431086d3f0e8",
+      "version": "2.2"
+    },
+    "SA5-星图 Wiki 条目模板-v2.md": {
+      "sha256": "c7d590f37c032391ef0862edb014dc4a932aa08e91357ebd32bb5d6800e31541",
+      "version": "2.1"
+    },
+    "SA6-星图 Wiki 协作规则-v2.md": {
+      "sha256": "4eacaf58623431f46e6b26fb42c65b658a9fce19cab489b64aca906ee22e6c2d",
+      "version": "2.2"
+    },
+    "TECH-17-星图测试上线与首版范围规范-v1.md": {
+      "sha256": "fd4d485e056f85cfd58d0af82a91452ccc7ce501670f4080ac656c3ed5942de4",
+      "version": "1.3"
+    }
+  }
+}
