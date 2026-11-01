@@ -1,0 +1,152 @@
+{
+  "checked_at_utc": "2026-11-01T10:02:51.447583+00:00",
+  "read_only": true,
+  "services": {
+    "account": {
+      "dependencies": {
+        "config": {
+          "exists": true,
+          "within_recovery_set": true,
+          "mode": "0o640",
+          "type": "file"
+        },
+        "database": {
+          "exists": true,
+          "within_recovery_set": true,
+          "mode": "0o600",
+          "type": "file"
+        },
+        "backup_directory": {
+          "exists": true,
+          "within_recovery_set": true,
+          "mode": "0o700",
+          "type": "directory",
+          "archive_count": 60,
+          "metadata_count": 60
+        },
+        "backup_key": {
+          "exists": true,
+          "within_recovery_set": true,
+          "mode": "0o600",
+          "type": "file"
+        },
+        "independent_journal": {
+          "exists": true,
+          "within_recovery_set": true,
+          "mode": "0o600",
+          "type": "file"
+        },
+        "journal_anchors": {
+          "exists": true,
+          "within_recovery_set": true,
+          "mode": "0o700",
+          "type": "directory"
+        },
+        "key_file": {
+          "exists": true,
+          "within_recovery_set": true,
+          "mode": "0o600",
+          "type": "file"
+        },
+        "oidc_secret_file": {
+          "exists": true,
+          "within_recovery_set": true,
+          "mode": "0o600",
+          "type": "file"
+        },
+        "signing_key_file": {
+          "exists": true,
+          "within_recovery_set": true,
+          "mode": "0o600",
+          "type": "file"
+        },
+        "journal_initialization_marker": {
+          "exists": true,
+          "within_recovery_set": true,
+          "mode": "0o600",
+          "type": "file"
+        }
+      }
+    },
+    "atlas": {
+      "dependencies": {
+        "config": {
+          "exists": true,
+          "within_recovery_set": true,
+          "mode": "0o640",
+          "type": "file"
+        },
+        "database": {
+          "exists": true,
+          "within_recovery_set": true,
+          "mode": "0o600",
+          "type": "file"
+        },
+        "backup_directory": {
+          "exists": true,
+          "within_recovery_set": true,
+          "mode": "0o700",
+          "type": "directory",
+          "archive_count": 60,
+          "metadata_count": 60
+        },
+        "backup_key": {
+          "exists": true,
+          "within_recovery_set": true,
+          "mode": "0o600",
+          "type": "file"
+        },
+        "independent_journal": {
+          "exists": true,
+          "within_recovery_set": true,
+          "mode": "0o600",
+          "type": "file"
+        },
+        "journal_anchors": {
+          "exists": true,
+          "within_recovery_set": true,
+          "mode": "0o700",
+          "type": "directory"
+        },
+        "oidc_secret_file": {
+          "exists": true,
+          "within_recovery_set": true,
+          "mode": "0o600",
+          "type": "file"
+        },
+        "csrf_key_file": {
+          "exists": true,
+          "within_recovery_set": true,
+          "mode": "0o600",
+          "type": "file"
+        },
+        "restricted_database": {
+          "exists": true,
+          "within_recovery_set": true,
+          "mode": "0o600",
+          "type": "file"
+        },
+        "vault_key": {
+          "exists": true,
+          "within_recovery_set": true,
+          "mode": "0o600",
+          "type": "file"
+        }
+      }
+    }
+  },
+  "tools": {
+    "age": true,
+    "rsync": true,
+    "tar": true,
+    "sha256sum": true
+  },
+  "monitor_directory": {
+    "exists": true,
+    "within_recovery_set": false,
+    "mode": "0o700",
+    "type": "directory"
+  },
+  "scope": "Metadata existence, permissions and archive-root containment only; no key contents, journals, database rows, decryption or recovery executed.",
+  "backup_archive_scope": "Backup directories are present within runtime roots, but current export script excludes *.backups. Copying ordinary encrypted snapshots and metadata must be included in the recovery procedure; not marked delivered."
+}
