@@ -64,6 +64,7 @@ func (app *App) managementIdentity(w http.ResponseWriter, r *http.Request, write
 }
 
 func (app *App) managementRoutes(r *chi.Mux) {
+	app.communityToolRoutes(r)
 	r.Get("/admin", app.managementPage)
 	r.Get("/admin/team", app.managementPage)
 	r.Get("/admin/representatives", app.managementPage)

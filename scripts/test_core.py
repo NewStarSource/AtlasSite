@@ -59,14 +59,44 @@ def check_management(client, account, atlas, account_bin, atlas_bin, account_dir
     expect(form_post(staff, atlas, "/admin/communities/pixel-game-dev", edit), 303, "representative saves community")
     assert "真实表单保存" in expect(staff.request(atlas + "/c/pixel-game-dev"), 200, "public community updated")[2]
     expect(form_post(staff, atlas, "/admin/communities/pixel-game-dev", edit), 409, "old management version rejected")
+    tools = "/admin/communities/pixel-game-dev/tools"
+    form = staff.form(atlas + tools + "/new?kind=announcement")
+    announcement = dict(form.inputs)
+    announcement.update(title="合成维护公告", content="**合成公告正文**", description="公开说明", status="draft", order="0", summary="创建合成草稿", pinned="1")
+    location = expect(form_post(staff, atlas, tools, announcement), 303, "create announcement draft")[1]["Location"].split("?")[0]
+    assert "合成维护公告" not in expect(staff.request(atlas + "/c/pixel-game-dev/announcements"), 200, "draft remains private")[2]
+    announcement.update(version="1", status="published", summary="发布合成公告")
+    expect(form_post(staff, atlas, location, announcement), 303, "publish announcement")
+    public = expect(staff.request(atlas + "/c/pixel-game-dev/announcements"), 200, "public announcement")[2]
+    assert "<strong>合成公告正文</strong>" in public and "置顶" in public and "更新于" in public
+    expect(form_post(staff, atlas, location, announcement), 409, "stale tool edit rejected")
+    assert "版本 2" in expect(staff.request(atlas + location + "/history"), 200, "tool history")[2]
+    form = staff.form(atlas + tools + "/new?kind=guide")
+    guide = dict(form.inputs); guide.update(title="合成新人指引", content="从这里开始", status="published", order="0", summary="创建新人指引")
+    expect(form_post(staff, atlas, tools, guide), 303, "publish guide")
+    assert "从这里开始" in expect(staff.request(atlas + "/c/pixel-game-dev/guide"), 200, "public guide")[2]
+    post = {"title": "合成合集原帖", "content": "原帖正文", "license": "reserved", "community": "pixel-game-dev", "request_id": __import__("uuid").uuid4().hex}
+    post_path = expect(form_post(staff, atlas, "/api/v1/posts", post), 303, "publish collection original")[1]["Location"]
+    form = staff.form(atlas + tools + "/new?kind=discussion")
+    discussion = dict(form.inputs); discussion.update(title="合成讨论合集", description="按原帖引用", references=post_path, status="published", order="0", summary="创建合集")
+    expect(form_post(staff, atlas, tools, discussion), 303, "create discussion collection")
+    assert "合成合集原帖" in expect(staff.request(atlas + "/c/pixel-game-dev/collections"), 200, "collection reference")[2]
+    expect(form_post(staff, atlas, "/api/v1" + post_path + "/delete", {"version": "1"}), 303, "author withdraws original")
+    assert "合成合集原帖" not in expect(staff.request(atlas + "/c/pixel-game-dev/collections"), 200, "withdrawn reference disappears")[2]
+    announcement.update(version="2", status="archived", summary="撤下合成公告")
+    expect(form_post(staff, atlas, location, announcement), 303, "withdraw announcement")
+    assert "合成维护公告" not in expect(staff.request(atlas + "/c/pixel-game-dev/announcements"), 200, "withdrawn announcement private")[2]
     expect(form_post(client, atlas, "/admin/representatives/pixel-game-dev/remove", {"version": "1"}), 303, "revoke representative")
     expect(staff.request(atlas + "/admin"), 403, "revoked representative denied")
+    announcement.update(version="3", status="published")
+    expect(form_post(staff, atlas, location, announcement), 403, "revoked tool maintainer denied")
     grant.update(role="member", version="0")
     expect(form_post(client, atlas, "/admin/team", grant), 303, "add team member")
     expect(staff.request(atlas + "/admin/team"), 200, "team member can view team")
     expect(form_post(staff, atlas, "/admin/team", dict(grant, role="admin")), 403, "team member cannot grant admin")
     expect(form_post(client, atlas, "/admin/team/" + owner + "/remove", {"version": "1"}), 409, "last admin retained")
     print("PASS management with real OIDC sessions: representative scope/save/revoke, team roles, CSRF and stale versions")
+    print("PASS community tools: real forms, draft/publish/withdraw, pin/history, guide, collection references and authorization revocation")
 
 
 def main():

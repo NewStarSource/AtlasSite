@@ -114,6 +114,11 @@ func (app *App) appendOperationLocked(op operation) error {
 	if err != nil {
 		return err
 	}
+	return app.appendOperationRecords(op, records)
+}
+
+// Caller holds the journal lock; records must be read before opening a DB transaction.
+func (app *App) appendOperationRecords(op operation, records []operation) error {
 	for _, record := range records {
 		if record.EventID == op.EventID {
 			return nil
@@ -175,6 +180,17 @@ func applyOperationSQL(tx *sql.Tx, op operation) error {
 	var query string
 	var args []any
 	switch op.Action {
+	case "collection-changed":
+		// A newer edit cannot be reconstructed from the journal, which contains no text.
+		// Keep the older snapshot private until an authorized maintainer reviews it.
+		if _, err := tx.Exec("UPDATE collection_details SET version=max(version,?)+1,editor_id=NULL WHERE collection_id=?", op.VersionNumber, op.ObjectID); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`INSERT OR IGNORE INTO collection_versions SELECT c.id,d.version,c.title,c.description,c.content,'archived',c.display_order,d.pinned,NULL,?,'恢复时隔离旧快照，需复核',COALESCE((SELECT json_group_array(post_id) FROM collection_refs WHERE collection_id=c.id),'[]') FROM collections c JOIN collection_details d ON d.collection_id=c.id WHERE c.id=?`, op.CreatedAt, op.ObjectID); err != nil {
+			return err
+		}
+		query = "UPDATE collections SET status='archived',updated_at=? WHERE id=?"
+		args = []any{op.CreatedAt, op.ObjectID}
 	case "subscription-on", "subscription-off":
 		if op.Action == "subscription-off" {
 			query = "DELETE FROM subscriptions WHERE user_id=? AND kind=? AND object_id=?"
@@ -645,7 +661,7 @@ func RestoreBackup(config Config, archive, destination string) error {
 		return err
 	}
 	var manifest BackupManifest
-	if json.Unmarshal(meta, &manifest) != nil || (manifest.Schema != 6 && manifest.Schema != currentSchema) {
+	if json.Unmarshal(meta, &manifest) != nil || manifest.Schema < 6 || manifest.Schema > currentSchema {
 		return errors.New("invalid backup manifest")
 	}
 	sum := sha256.Sum256(raw)

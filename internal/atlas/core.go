@@ -104,6 +104,9 @@ func (app *App) renderPage(w http.ResponseWriter, r *http.Request, title, page, 
 	app.renderPageWithMore(w, r, title, page, content, "")
 }
 func (app *App) renderPageWithMore(w http.ResponseWriter, r *http.Request, title, page, content, more string) {
+	app.renderPageStatus(w, r, 200, title, page, content, more)
+}
+func (app *App) renderPageStatus(w http.ResponseWriter, r *http.Request, status int, title, page, content, more string) {
 	identity, _, err := app.currentIdentity(r)
 	if err != nil {
 		respond(w, 503, map[string]string{"code": "DEPENDENCY_UNAVAILABLE"})
@@ -121,6 +124,7 @@ func (app *App) renderPageWithMore(w http.ResponseWriter, r *http.Request, title
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
 	w.Write(buf.Bytes())
 }
 func formStart(r *http.Request, action string) string {

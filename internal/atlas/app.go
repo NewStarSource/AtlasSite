@@ -42,7 +42,10 @@ var coreSchema string
 //go:embed 007_management.sql
 var managementSchema string
 
-const currentSchema = 7
+//go:embed 008_community_tools.sql
+var communityToolsSchema string
+
+const currentSchema = 8
 
 type Config struct {
 	TrustedProxies  []string `json:"trusted_proxies,omitempty"`
@@ -202,6 +205,13 @@ func New(config Config) (*App, error) {
 	}
 	if version < 7 {
 		if _, err = transaction.Exec(managementSchema); err != nil {
+			transaction.Rollback()
+			database.Close()
+			return nil, err
+		}
+	}
+	if version < 8 {
+		if _, err = transaction.Exec(communityToolsSchema); err != nil {
 			transaction.Rollback()
 			database.Close()
 			return nil, err

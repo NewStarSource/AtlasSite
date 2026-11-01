@@ -101,8 +101,14 @@ func (app *App) communityPage(w http.ResponseWriter, r *http.Request) {
 			}
 			shown++
 			body += `<section class="collection-card"><h2>` + esc(collection.Title) + `</h2>`
+			if collection.Pinned == 1 && collection.Type == "announcement" {
+				body += `<span class="admin-badge">置顶</span>`
+			}
+			if collection.Description != "" {
+				body += `<div class="prose">` + renderMarkdown(collection.Description) + `</div>`
+			}
 			if collection.Type == "discussion" {
-				rows, e := app.db.Query("SELECT p.id FROM collection_refs cr JOIN posts p ON p.id=cr.post_id WHERE cr.collection_id=? AND p.community_id=? AND "+visiblePostSQL+" ORDER BY p.created_at,p.id", collection.ID, c.ID)
+				rows, e := app.db.Query("SELECT p.id FROM collection_refs cr JOIN posts p ON p.id=cr.post_id LEFT JOIN collection_positions cp ON cp.collection_id=cr.collection_id AND cp.post_id=cr.post_id WHERE cr.collection_id=? AND p.community_id=? AND "+visiblePostSQL+" ORDER BY COALESCE(cp.position,2147483647),p.created_at,p.id", collection.ID, c.ID)
 				if e != nil {
 					fail(w, e)
 					return
@@ -119,7 +125,11 @@ func (app *App) communityPage(w http.ResponseWriter, r *http.Request) {
 					p, e := app.getPost(id)
 					if e == nil && app.postVisible(id, viewer) {
 						count++
-						body += `<p><a href="/p/` + pathID(id) + `">` + esc(p.Title) + ` →</a></p>`
+						author := p.AuthorName
+						if p.AuthorStatus != "active" {
+							author = "已注销"
+						}
+						body += `<p><a href="/p/` + pathID(id) + `">` + esc(p.Title) + ` →</a><small class="muted"> · ` + esc(author) + ` · ` + p.CreatedAt.Format("2006-01-02 15:04") + `</small></p>`
 					}
 				}
 				if count == 0 {
@@ -128,7 +138,7 @@ func (app *App) communityPage(w http.ResponseWriter, r *http.Request) {
 			} else {
 				body += `<div class="prose">` + renderMarkdown(collection.Content) + `</div>`
 			}
-			body += `</section>`
+			body += `<p class="muted">维护者 ` + esc(collection.Editor) + ` · 更新于 ` + collection.UpdatedAt.Format("2006-01-02 15:04") + `</p></section>`
 		}
 		if shown == 0 {
 			body += emptyState("这里还没有公开内容", "有新的公开内容时，会显示在这里。", base, "返回社群讨论")

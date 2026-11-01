@@ -71,6 +71,8 @@ type Collection struct {
 	Status      string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	Pinned      int
+	Editor      string
 }
 
 func (app *App) communityRoutes(router *chi.Mux) {
@@ -454,8 +456,8 @@ func (app *App) listTopics(communityID string) ([]Topic, error) {
 
 func (app *App) listCollections(communityID string) ([]Collection, error) {
 	rows, err := app.db.Query(`
-		SELECT id, community_id, type, title, slug, description, content, status, created_at, updated_at
-		FROM collections WHERE community_id=? AND status='published' ORDER BY display_order
+		SELECT c.id,c.community_id,c.type,c.title,c.slug,c.description,c.content,c.status,c.created_at,c.updated_at,COALESCE(d.pinned,0),COALESCE(u.alias,'历史维护者')
+		FROM collections c LEFT JOIN collection_details d ON d.collection_id=c.id LEFT JOIN users u ON u.id=d.editor_id AND u.status='active' WHERE c.community_id=? AND c.status='published' ORDER BY COALESCE(d.pinned,0) DESC,c.display_order,c.id
 	`, communityID)
 	if err != nil {
 		return nil, err
@@ -467,7 +469,7 @@ func (app *App) listCollections(communityID string) ([]Collection, error) {
 		var c Collection
 		var createdAt, updatedAt int64
 		if err := rows.Scan(&c.ID, &c.CommunityID, &c.Type, &c.Title, &c.Slug, &c.Description,
-			&c.Content, &c.Status, &createdAt, &updatedAt); err != nil {
+			&c.Content, &c.Status, &createdAt, &updatedAt, &c.Pinned, &c.Editor); err != nil {
 			return nil, err
 		}
 		c.CreatedAt = time.Unix(createdAt, 0)
