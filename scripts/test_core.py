@@ -168,6 +168,47 @@ def check_wiki(client, editor, atlas):
     expect(form_post(editor, atlas, path + "/replies", {"content": "隐藏后不能回复", "license": "CC BY-SA 4.0"}), 404, "hidden Wiki write denied")
     assert path not in expect(editor.request(atlas + "/wiki?q=" + urllib.parse.quote("合成 Wiki")), 200, "hidden Wiki excluded from search")[2]
     print("PASS Wiki discovery: real forms, collaborative versions/source snapshots, nested replies, timeline separation and hidden-history isolation")
+    check_wiki_entries(client, editor, atlas)
+
+
+def check_wiki_entries(reviewer, editor, atlas):
+    for kind in ("community", "work"):
+        form = editor.form(atlas + "/wiki/entries/new?kind=" + kind)
+        values = dict(form.inputs)
+        values.update(kind=kind, title="合成正式条目 " + kind, summary="人工审核后公开", body="公开资料支持这条记录。[^1]", community="pixel-game-dev", sources="1 | 合成公开来源 | https://example.test/wiki-entry | " + date.today().isoformat(), edit_summary="提交正式资料", license="CC BY-SA 4.0", public_scope="public")
+        if kind == "community":
+            values.update(status_value="active", first_verified_at=date.today().isoformat())
+        else:
+            values.update(status_value="public", work_type="公开网站", creator="合成公开署名", public_url="https://example.test/work")
+        private = expect(form_post(editor, atlas, "/wiki/entries", values), 303, "submit formal Wiki entry")[1]["Location"]
+        page = private.split("/submissions/")[0]
+        assert "待人工审核" in expect(editor.request(atlas + private), 200, "own private Wiki submission")[2]
+        expect(Browser().request(atlas + private), 401, "private submission requires login")
+        expect(reviewer.request(atlas + page), 404, "unreviewed Wiki entry remains unpublished")
+        expect(editor.request(atlas + "/admin/wiki"), 403, "ordinary user cannot review")
+        assert values["title"] in expect(reviewer.request(atlas + "/admin/wiki"), 200, "manual Wiki queue")[2]
+        review = "/admin" + page + "/versions/1/review"
+        decision = {"decision": "accept", "note": "已人工核对公开来源", "confirm": "reviewed"}
+        expect(reviewer.request(atlas + review, decision), 403, "Wiki review CSRF required")
+        expect(form_post(reviewer, atlas, review, decision), 303, "manual Wiki publication")
+        assert "人工审核发布" in expect(editor.request(atlas + page), 200, "approved Wiki entry public")[2]
+        suggestion = {"base": "1", "target": "summary", "proposed": "建议采纳后的说明", "evidence": "合成公开来源中的补充依据", "license": "CC BY-SA 4.0"}
+        location = expect(form_post(editor, atlas, page + "/suggestions", suggestion), 303, "public Wiki suggestion")[1]["Location"]
+        suggestion_id = urllib.parse.parse_qs(urllib.parse.urlsplit(location).query)["suggestion"][0]
+        assert "待处理" in expect(reviewer.request(atlas + location), 200, "suggestion direct link")[2]
+        resolve = "/admin" + page + "/suggestions/" + suggestion_id + "/resolve"
+        expect(form_post(reviewer, atlas, resolve, {"version": "1", "decision": "accepted", "note": "内容可核实，采纳", "confirm": "reviewed"}), 303, "accept Wiki suggestion")
+        assert "建议采纳后的说明" in expect(editor.request(atlas + page + "/versions/2"), 200, "suggestion published as new version")[2]
+        suggestion.update(base="2", proposed="缺乏依据的修改", evidence="有待补充的依据")
+        location = expect(form_post(editor, atlas, page + "/suggestions", suggestion), 303, "another Wiki suggestion")[1]["Location"]
+        suggestion_id = urllib.parse.parse_qs(urllib.parse.urlsplit(location).query)["suggestion"][0]
+        expect(form_post(reviewer, atlas, "/admin" + page + "/suggestions/" + suggestion_id + "/resolve", {"version": "1", "decision": "rejected", "note": "公开依据不足，请补充", "confirm": "reviewed"}), 303, "reject Wiki suggestion with reason")
+        assert "公开依据不足" in expect(editor.request(atlas + location), 200, "public rejection reason")[2]
+        revision = dict(values, version="2", base="2", summary="仍待审核的修订")
+        pending = expect(form_post(editor, atlas, page + "/propose", revision), 303, "propose revision")[1]["Location"]
+        assert "仍待审核的修订" not in expect(reviewer.request(atlas + page), 200, "pending revision cannot replace public version")[2]
+        expect(form_post(editor, atlas, pending + "/withdraw", {}), 303, "withdraw own pending revision")
+    print("PASS formal Wiki: both templates, private submissions, manual review/CSRF, public suggestion adoption/reasoned rejection and pending-revision withdrawal")
 
 
 def main():

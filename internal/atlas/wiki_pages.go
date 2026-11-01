@@ -11,7 +11,7 @@ import (
 )
 
 func wikiNav() string {
-	return `<nav class="action-row"><a href="/wiki">Wiki</a><a href="/wiki/new">新建发现页</a></nav>`
+	return `<nav class="action-row"><a href="/wiki">Wiki</a><a href="/wiki/new">新建发现页</a><a href="/wiki/entries/new">提交条目</a><a href="/my/wiki">我的提交</a></nav>`
 }
 
 func (app *App) wikiList(r *http.Request, community string) (string, error) {
@@ -25,7 +25,7 @@ func (app *App) wikiList(r *http.Request, community string) (string, error) {
 		query += " AND v.community_id=?"
 		args = append(args, community)
 	} else if q == "" {
-		query += " AND v.community_id IS NOT NULL"
+		query += " AND (p.kind<>'discovery' OR v.community_id IS NOT NULL)"
 	}
 	if q != "" {
 		query += " AND (instr(lower(v.title),lower(?))>0 OR instr(lower(v.summary),lower(?))>0 OR instr(lower(v.body),lower(?))>0 OR instr(lower(v.sources_json),lower(?))>0)"
@@ -73,7 +73,11 @@ func (app *App) wikiIndex(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	body := wikiNav() + `<header class="page-heading"><h1>Wiki</h1><span class="admin-badge">内部原型</span></header><form method="get" class="admin-search"><label for="wiki-query" class="sr-only">搜索 Wiki</label><input id="wiki-query" type="search" name="q" maxlength="100" value="` + esc(r.URL.Query().Get("q")) + `" placeholder="搜索发现页…"><button class="tool-icon" aria-label="搜索 Wiki">` + uiIcon("search") + `</button></form>`
+	body := wikiNav() + `<header class="page-heading"><h1>Wiki</h1><span class="admin-badge">内部原型</span></header><form method="get" class="admin-search"><label for="wiki-query" class="sr-only">搜索 Wiki</label><input id="wiki-query" type="search" name="q" maxlength="100" value="` + esc(r.URL.Query().Get("q")) + `" placeholder="搜索条目或发现页…"><button class="tool-icon" aria-label="搜索 Wiki">` + uiIcon("search") + `</button></form>`
+	i, _, _ := app.currentIdentity(r)
+	if i != nil && wikiReviewer(app.db, i.ID) {
+		body += `<p><a href="/admin/wiki">Wiki 人工审核</a></p>`
+	}
 	if r.URL.Query().Get("q") == "" {
 		body += `<p class="muted">未关联社群的发现页可通过搜索查找。</p>`
 	}
@@ -106,6 +110,9 @@ func (app *App) wikiAttribution(v wikiVersion) string {
 
 func (app *App) wikiArticle(v wikiVersion, historical bool) string {
 	label := wikiKind(v.Kind) + " · 待核实 · 内部原型"
+	if formalWiki(v.Kind) {
+		label = wikiKind(v.Kind) + " · " + wikiReviewState(v.Review) + " · 内部原型"
+	}
 	if historical {
 		label += " · 历史版本"
 	}
@@ -119,7 +126,10 @@ func (app *App) wikiArticle(v wikiVersion, historical bool) string {
 	if v.Summary != "" {
 		body += `<p class="wiki-summary">` + esc(v.Summary) + `</p>`
 	}
-	return body + `<div class="prose">` + wikiBody(v) + `</div>` + wikiSourcesHTML(v.Sources) + `<p class="muted">CC BY-SA 4.0 · 外部引用材料保留原许可边界</p></article>`
+	if formalWiki(v.Kind) && v.Review == "accepted" {
+		body += `<p class="muted">人工审核发布 · ` + wikiTime(v.Reviewed) + `</p>`
+	}
+	return body + wikiFieldsHTML(v) + `<div class="prose">` + wikiBody(v) + `</div>` + wikiSourcesHTML(v.Sources) + `<p class="muted">CC BY-SA 4.0 · 外部引用材料保留原许可边界</p></article>`
 }
 
 func (app *App) wikiPage(w http.ResponseWriter, r *http.Request) {
@@ -139,11 +149,23 @@ func (app *App) wikiPage(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	body := wikiNav() + app.wikiArticle(v, false) + `<div class="action-row"><a href="/wiki/` + pathID(id) + `/edit">编辑</a><a href="/wiki/` + pathID(id) + `/history">版本记录</a></div>`
+	body := wikiNav()
+	if formalWiki(v.Kind) {
+		var pending int
+		if app.db.QueryRow("SELECT count(*) FROM wiki_versions WHERE page_id=? AND review_status='pending'", id).Scan(&pending) == nil && pending > 0 {
+			body += `<p class="notice">有修订待人工审核，当前仍显示已发布版本。</p>`
+		}
+	}
+	body += app.wikiArticle(v, false)
+	editPath, editLabel := "/edit", "编辑"
+	if formalWiki(v.Kind) {
+		editPath, editLabel = "/propose", "提交修订"
+	}
+	body += `<div class="action-row"><a href="/wiki/` + pathID(id) + editPath + `">` + editLabel + `</a><a href="/wiki/` + pathID(id) + `/history">版本记录</a></div>`
 	i, _, _ := app.currentIdentity(r)
 	if i != nil {
 		role, _ := managementAccess(app.db, i.ID)
-		if i.ID == v.Creator || role == "admin" || role == "member" {
+		if (i.ID == v.Creator && v.Kind == "discovery") || role == "admin" || role == "member" {
 			body += `<details class="field-help"><summary>页面管理</summary>` + formStart(r, "/wiki/"+pathID(id)+"/withdraw") + field("version", strconv.Itoa(v.Latest)) + `<label>原因<select name="reason"><option value="nonexistent">对象不存在</option><option value="duplicate">重复页面</option><option value="privacy">隐私请求</option><option value="copyright">版权请求</option><option value="safety">安全限制</option></select></label><label>处理方式<select name="state"><option value="deleted">删除页面</option>`
 			if role == "admin" || role == "member" {
 				body += `<option value="hidden">暂时隐藏</option>`
@@ -156,7 +178,12 @@ func (app *App) wikiPage(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	app.renderPage(w, r, v.Title, "wiki", body+replies)
+	suggestions, err := app.wikiSuggestionsHTML(r, v, i)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	app.renderPage(w, r, v.Title, "wiki", body+suggestions+replies)
 }
 
 func (app *App) wikiCommunitySelect(selected string) (string, error) {
@@ -199,7 +226,7 @@ func (app *App) wikiEditor(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if v.Kind != "discovery" {
-			fail(w, errForbidden)
+			http.Redirect(w, r, "/wiki/"+pathID(id)+"/propose", 303)
 			return
 		}
 	}
@@ -259,7 +286,7 @@ func (app *App) wikiHistory(w http.ResponseWriter, r *http.Request) {
 		fail(w, sql.ErrNoRows)
 		return
 	}
-	rows, err := app.db.Query(`SELECT v.number,v.editor_alias,v.edit_summary,v.created_at,u.status FROM wiki_versions v JOIN users u ON u.id=v.editor_id WHERE v.page_id=? AND v.review_status='accepted' AND `+wikiCommunityVisibleSQL+` ORDER BY v.number DESC LIMIT ? OFFSET ?`, id, pageSize+1, pageOffset(r))
+	rows, err := app.db.Query(`SELECT v.number,v.editor_alias,v.edit_summary,v.created_at,u.status,COALESCE(v.reviewed_at,0),v.review_reason,COALESCE((SELECT max(pv.number) FROM wiki_versions pv WHERE pv.page_id=v.page_id AND pv.number<v.number AND pv.review_status='accepted' AND (pv.community_id IS NULL OR EXISTS(SELECT 1 FROM communities pc WHERE pc.id=pv.community_id AND pc.status IN ('active','uncategorized')))),0) FROM wiki_versions v JOIN users u ON u.id=v.editor_id WHERE v.page_id=? AND v.review_status='accepted' AND `+wikiCommunityVisibleSQL+` ORDER BY v.number DESC LIMIT ? OFFSET ?`, id, pageSize+1, pageOffset(r))
 	if err != nil {
 		fail(w, err)
 		return
@@ -267,10 +294,10 @@ func (app *App) wikiHistory(w http.ResponseWriter, r *http.Request) {
 	body := wikiNav() + `<h1>版本记录</h1><p><a href="/wiki/` + pathID(id) + `">返回当前页面</a></p>`
 	n := 0
 	for rows.Next() {
-		var version int
-		var alias, summary, status string
-		var created int64
-		if err = rows.Scan(&version, &alias, &summary, &created, &status); err != nil {
+		var version, previous int
+		var alias, summary, status, note string
+		var created, reviewed int64
+		if err = rows.Scan(&version, &alias, &summary, &created, &status, &reviewed, &note, &previous); err != nil {
 			rows.Close()
 			fail(w, err)
 			return
@@ -283,8 +310,11 @@ func (app *App) wikiHistory(w http.ResponseWriter, r *http.Request) {
 			alias += "（已注销）"
 		}
 		body += `<article class="admin-row"><h2><a href="/wiki/` + pathID(id) + `/versions/` + strconv.Itoa(version) + `">版本 ` + strconv.Itoa(version) + `</a></h2><p>` + esc(summary) + `</p><small class="muted">` + esc(alias) + ` · ` + wikiTime(created) + `</small>`
-		if version > 1 {
-			body += `<p><a href="/wiki/` + pathID(id) + `/diff?from=` + strconv.Itoa(version-1) + `&amp;to=` + strconv.Itoa(version) + `">查看差异</a></p>`
+		if reviewed > 0 {
+			body += `<p class="muted">人工审核 · ` + wikiTime(reviewed) + ` · ` + esc(note) + `</p>`
+		}
+		if previous > 0 {
+			body += `<p><a href="/wiki/` + pathID(id) + `/diff?from=` + strconv.Itoa(previous) + `&amp;to=` + strconv.Itoa(version) + `">查看差异</a></p>`
 		}
 		body += `</article>`
 	}

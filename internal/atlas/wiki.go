@@ -24,6 +24,8 @@ type wikiVersion struct {
 	Number, Latest, Published, Base                                                                           int
 	Created, Updated                                                                                          int64
 	Sources                                                                                                   []wikiSource
+	Reviewer, ReviewReason                                                                                    string
+	Reviewed                                                                                                  int64
 }
 
 var wikiSourceID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,32}$`)
@@ -109,7 +111,7 @@ func wikiBody(v wikiVersion) string {
 func loadWikiVersion(q managementQuery, id string, number int) (wikiVersion, error) {
 	v := wikiVersion{}
 	var sources string
-	err := q.QueryRow(`SELECT p.id,p.kind,p.creator_id,p.state,p.latest_version,p.published_version,p.updated_at,v.number,v.base_version,v.title,v.summary,v.body,v.fields_json,COALESCE(v.community_id,''),v.editor_id,v.editor_alias,v.edit_summary,v.review_status,v.sources_json,v.created_at FROM wiki_pages p JOIN wiki_versions v ON v.page_id=p.id AND v.number=CASE WHEN ?=0 THEN p.published_version ELSE ? END WHERE p.id=?`, number, number, id).Scan(&v.PageID, &v.Kind, &v.Creator, &v.State, &v.Latest, &v.Published, &v.Updated, &v.Number, &v.Base, &v.Title, &v.Summary, &v.Body, &v.Fields, &v.Community, &v.Editor, &v.Alias, &v.EditSummary, &v.Review, &sources, &v.Created)
+	err := q.QueryRow(`SELECT p.id,p.kind,p.creator_id,p.state,p.latest_version,p.published_version,p.updated_at,v.number,v.base_version,v.title,v.summary,v.body,v.fields_json,COALESCE(v.community_id,''),v.editor_id,v.editor_alias,v.edit_summary,v.review_status,v.sources_json,v.created_at,COALESCE(v.reviewer_id,''),v.review_reason,COALESCE(v.reviewed_at,0) FROM wiki_pages p JOIN wiki_versions v ON v.page_id=p.id AND v.number=CASE WHEN ?=0 THEN p.published_version ELSE ? END WHERE p.id=?`, number, number, id).Scan(&v.PageID, &v.Kind, &v.Creator, &v.State, &v.Latest, &v.Published, &v.Updated, &v.Number, &v.Base, &v.Title, &v.Summary, &v.Body, &v.Fields, &v.Community, &v.Editor, &v.Alias, &v.EditSummary, &v.Review, &sources, &v.Created, &v.Reviewer, &v.ReviewReason, &v.Reviewed)
 	if err == nil {
 		err = json.Unmarshal([]byte(sources), &v.Sources)
 	}
@@ -160,6 +162,7 @@ func (app *App) wikiRoutes(r *chi.Mux) {
 		r.Post("/wiki/{wiki}/replies", app.createWikiReply)
 		r.Post("/wiki/{wiki}/replies/{reply}/delete", app.deleteWikiReply)
 		r.Get("/c/{slug}/wiki", app.communityWikiPage)
+		app.wikiEntryRoutes(r)
 	})
 }
 
@@ -298,5 +301,5 @@ func wikiSourcesHTML(sources []wikiSource) string {
 }
 
 func wikiVersionText(v wikiVersion) string {
-	return fmt.Sprintf("%s\n\n%s\n\n%s\n\n%s", v.Title, v.Summary, v.Body, wikiSourcesText(v.Sources))
+	return fmt.Sprintf("%s\n\n%s\n\n%s\n\n%s\n\n%s", v.Title, v.Summary, wikiFieldsText(v), v.Body, wikiSourcesText(v.Sources))
 }

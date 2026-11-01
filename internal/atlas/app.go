@@ -51,7 +51,10 @@ var toolCollaboratorsSchema string
 //go:embed 010_wiki.sql
 var wikiSchema string
 
-const currentSchema = 10
+//go:embed 011_wiki_review.sql
+var wikiReviewSchema string
+
+const currentSchema = 11
 
 type Config struct {
 	WikiEnabled     bool     `json:"wiki_enabled,omitempty"`
@@ -233,6 +236,13 @@ func New(config Config) (*App, error) {
 	}
 	if version < 10 {
 		if _, err = transaction.Exec(wikiSchema); err != nil {
+			transaction.Rollback()
+			database.Close()
+			return nil, err
+		}
+	}
+	if version < 11 {
+		if _, err = transaction.Exec(wikiReviewSchema); err != nil {
 			transaction.Rollback()
 			database.Close()
 			return nil, err

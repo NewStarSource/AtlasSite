@@ -35,6 +35,7 @@ type operation struct {
 	Previous      string   `json:"previous"`
 	MAC           string   `json:"mac"`
 	Reason        string   `json:"reason,omitempty"`
+	ParentID      string   `json:"parent_id,omitempty"`
 }
 
 func operationMAC(key []byte, op operation) string {
@@ -181,6 +182,19 @@ func applyOperationSQL(tx *sql.Tx, op operation) error {
 	var query string
 	var args []any
 	switch op.Action {
+	case "wiki-review-rejected":
+		query = "UPDATE wiki_versions SET review_status='rejected',review_reason='备份之后已有退回决定，原说明未包含在此快照中。',reviewed_at=? WHERE page_id=? AND number=?"
+		args = []any{op.CreatedAt, op.ObjectID, op.VersionNumber}
+	case "wiki-submission-withdraw":
+		if err := wipeWikiSubmissionSQL(tx, op.ObjectID, op.VersionNumber, wikiSubmissionRecoveryReason(op.Reason)); err != nil {
+			return err
+		}
+		query = "SELECT 1"
+	case "wiki-suggestion-resolved", "wiki-suggestion-withdraw":
+		if err := replayWikiSuggestion(tx, op); err != nil {
+			return err
+		}
+		query = "SELECT 1"
 	case "wiki-changed":
 		// Newer public edits are absent from the older snapshot; require fresh review.
 		query = "UPDATE wiki_pages SET state='hidden',latest_version=max(latest_version,?)+1,updated_at=? WHERE id=?"
@@ -305,6 +319,9 @@ func applyOperationSQL(tx *sql.Tx, op operation) error {
 		}
 		args = []any{v, op.ObjectID}
 	case "deactivate-user", "retain-user":
+		if err := withdrawOwnWikiSubmissions(tx, op.ObjectID); err != nil {
+			return err
+		}
 		if op.Action == "deactivate-user" {
 			if err := withdrawOwnWikiReplies(tx, op.ObjectID, op.Retained); err != nil {
 				return err
@@ -540,6 +557,9 @@ func (app *App) maintenanceGate(next http.Handler) http.Handler {
 				allowed = true
 			}
 			if mode == "readonly" && ((len(parts) == 4 && parts[1] == "wiki" && parts[2] != "" && parts[3] == "withdraw") || (len(parts) == 6 && parts[1] == "wiki" && parts[2] != "" && parts[3] == "replies" && parts[4] != "" && parts[5] == "delete")) {
+				allowed = true
+			}
+			if mode == "readonly" && len(parts) == 6 && parts[1] == "wiki" && (parts[3] == "submissions" || parts[3] == "suggestions") && parts[5] == "withdraw" {
 				allowed = true
 			}
 			if !allowed {

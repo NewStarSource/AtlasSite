@@ -98,6 +98,20 @@ func (app *App) scrubBackupsLocked() error {
 			if hasWiki == 1 {
 				for _, op := range records {
 					switch op.Action {
+					case "wiki-submission-withdraw":
+						if err = wipeWikiSubmissionSQL(tx, op.ObjectID, op.VersionNumber, wikiSubmissionRecoveryReason(op.Reason)); err != nil {
+							return err
+						}
+					case "wiki-suggestion-withdraw":
+						if err = wipeWikiSuggestionSQL(tx, op.ObjectID, "withdrawn", ""); err != nil {
+							return err
+						}
+					case "wiki-suggestion-resolved":
+						if op.Reason != "" {
+							if err = wipeWikiSuggestionSQL(tx, op.ObjectID, "rejected", wikiReason(op.Reason)); err != nil {
+								return err
+							}
+						}
 					case "wiki-withdraw":
 						if err = wipeWikiSQL(tx, op.ObjectID, op.TargetKind, op.Reason, op.CreatedAt); err != nil {
 							return err
@@ -106,9 +120,14 @@ func (app *App) scrubBackupsLocked() error {
 						if err = wipeWikiReplySQL(tx, op.ObjectID); err != nil {
 							return err
 						}
-					case "deactivate-user":
-						if err = withdrawOwnWikiReplies(tx, op.ObjectID, op.Retained); err != nil {
+					case "deactivate-user", "retain-user":
+						if err = withdrawOwnWikiSubmissions(tx, op.ObjectID); err != nil {
 							return err
+						}
+						if op.Action == "deactivate-user" {
+							if err = withdrawOwnWikiReplies(tx, op.ObjectID, op.Retained); err != nil {
+								return err
+							}
 						}
 					}
 				}

@@ -11,6 +11,16 @@ import (
 )
 
 func wipeWikiSQL(tx *sql.Tx, id, state, reason string, at int64) error {
+	if exists, err := wikiSuggestionTable(tx); err != nil {
+		return err
+	} else if exists {
+		if _, err = tx.Exec("UPDATE wiki_suggestion_actions SET note='' WHERE suggestion_id IN (SELECT id FROM wiki_suggestions WHERE page_id=?)", id); err != nil {
+			return err
+		}
+		if _, err = tx.Exec("UPDATE wiki_suggestions SET old_text='',proposed='',evidence='',sources_json='[]',resolution='',state='withdrawn',version=version+1 WHERE page_id=?", id); err != nil {
+			return err
+		}
+	}
 	for _, q := range []string{
 		"UPDATE wiki_versions SET title='',summary='',body='',fields_json='{}',sources_json='[]',edit_summary='',review_reason='',review_status='withdrawn' WHERE page_id=?",
 		"UPDATE wiki_replies SET content='',status='deleted' WHERE page_id=?",
@@ -82,7 +92,37 @@ func (app *App) preserveWiki(tx *sql.Tx, id string) error {
 	if err != nil {
 		return err
 	}
-	return app.privatePut("wiki-isolated:"+id, "", "wiki-isolated", versions, time.Now().Add(30*24*time.Hour).Unix())
+	suggestions := []wikiSuggestion{}
+	if exists, e := wikiSuggestionTable(tx); e != nil {
+		return e
+	} else if exists {
+		rows, e := tx.Query("SELECT id FROM wiki_suggestions WHERE page_id=?", id)
+		if e != nil {
+			return e
+		}
+		ids := []string{}
+		for rows.Next() {
+			var key string
+			if e = rows.Scan(&key); e != nil {
+				rows.Close()
+				return e
+			}
+			ids = append(ids, key)
+		}
+		e = rows.Err()
+		rows.Close()
+		if e != nil {
+			return e
+		}
+		for _, key := range ids {
+			g, e := loadWikiSuggestion(tx, key)
+			if e != nil {
+				return e
+			}
+			suggestions = append(suggestions, g)
+		}
+	}
+	return app.privatePut("wiki-isolated:"+id, "", "wiki-isolated", map[string]any{"versions": versions, "suggestions": suggestions}, time.Now().Add(30*24*time.Hour).Unix())
 }
 
 func (app *App) withdrawWiki(w http.ResponseWriter, r *http.Request) {
@@ -135,7 +175,7 @@ func (app *App) commitWikiWithdrawal(r *http.Request, i *Identity, id, state, re
 	if err = tx.QueryRow("SELECT creator_id,kind,state,latest_version FROM wiki_pages WHERE id=?", id).Scan(&creator, &kind, &currentState, &current); err != nil {
 		return err
 	}
-	if currentState != "active" || current != version {
+	if (currentState != "active" && currentState != "hidden") || current != version {
 		return errConflict
 	}
 	role, err := managementAccess(tx, i.ID)

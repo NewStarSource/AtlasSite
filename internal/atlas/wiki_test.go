@@ -15,6 +15,31 @@ import (
 	"time"
 )
 
+func dropSchemasAfterForTest(t *testing.T, app *App, version int) {
+	t.Helper()
+	queries := []string{}
+	if version < 11 {
+		queries = append(queries, "DROP TABLE wiki_suggestion_actions; DROP TABLE wiki_suggestions;")
+	}
+	if version < 10 {
+		queries = append(queries, "DROP TABLE wiki_replies; DROP TABLE wiki_versions; DROP TABLE wiki_pages;")
+	}
+	if version < 9 {
+		queries = append(queries, "DROP TRIGGER tool_collaborator_account_inactive; DROP TRIGGER tool_collaborator_community_inactive; DROP TABLE tool_collaborators; DROP TABLE tool_eligibility;")
+	}
+	if version < 8 {
+		queries = append(queries, "DROP TABLE collection_positions; DROP TABLE collection_versions; DROP TABLE collection_details;")
+	}
+	for _, query := range queries {
+		if _, err := app.db.Exec(query); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := app.db.Exec("DELETE FROM schema_migrations WHERE version>?", version); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func wikiValues(id, title, community string, version int) url.Values {
 	return url.Values{"page_id": {id}, "title": {title}, "summary": {"合成线索"}, "body": {"公开线索有待核实。[^1]"}, "community": {community}, "sources": {"1 | 合成公开来源 | https://example.test/source | " + time.Now().Format("2006-01-02")}, "edit_summary": {"合成记录"}, "license": {"CC BY-SA 4.0"}, "version": {strconv.Itoa(version)}}
 }
@@ -402,9 +427,7 @@ func TestWikiMigrationFromNine(t *testing.T) {
 	v := toolValues("guide", id, 0)
 	v.Set("status", "published")
 	mustStatus(t, rep.call("POST", toolBase(community), v, true), 303)
-	if _, err := app.db.Exec("DROP TABLE wiki_replies; DROP TABLE wiki_versions; DROP TABLE wiki_pages; DELETE FROM schema_migrations WHERE version=10;"); err != nil {
-		t.Fatal(err)
-	}
+	dropSchemasAfterForTest(t, app, 9)
 	backup, err := app.Backup()
 	if err != nil {
 		t.Fatal(err)

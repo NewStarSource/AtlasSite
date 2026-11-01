@@ -8,7 +8,10 @@ import (
 const pageSize = 50
 
 func pageNumber(r *http.Request) int {
-	n, err := strconv.Atoi(r.URL.Query().Get("page"))
+	return pageNumberFor(r, "page")
+}
+func pageNumberFor(r *http.Request, key string) int {
+	n, err := strconv.Atoi(r.URL.Query().Get(key))
 	if err != nil || n < 0 {
 		return 0
 	}
@@ -31,7 +34,10 @@ func pageItems[T any](items []T) []T {
 	return items
 }
 func pagination(r *http.Request, more bool) string {
-	page := pageNumber(r)
+	return paginationFor(r, more, "page")
+}
+func paginationFor(r *http.Request, more bool, key string) string {
+	page := pageNumberFor(r, key)
 	if page == 0 && !more {
 		return ""
 	}
@@ -39,7 +45,7 @@ func pagination(r *http.Request, more bool) string {
 	link := func(n int, label string) string {
 		u := *r.URL
 		q := u.Query()
-		q.Set("page", strconv.Itoa(n))
+		q.Set(key, strconv.Itoa(n))
 		u.RawQuery = q.Encode()
 		return `<a class="btn btn-secondary" href="` + esc(u.RequestURI()) + `">` + label + `</a>`
 	}

@@ -343,6 +343,8 @@ func (app *App) managementLog(i *Identity, role string, r *http.Request) (string
 	labels := map[string]string{"bootstrap-admin": "初始化管理员", "team-save": "更新团队授权", "team-remove": "撤销团队授权", "representative-save": "更新代表授权", "representative-remove": "撤销代表授权", "community-save": "更新社群资料", "collection-save": "维护社群工具"}
 	labels["wiki-discovery-save"] = "编辑 Wiki 发现页"
 	labels["wiki-withdraw"] = "停止展示 Wiki 页面"
+	labels["wiki-submit"] = "提交 Wiki 条目"
+	labels["wiki-review"] = "人工审核 Wiki 条目"
 	for action, label := range map[string]string{"tool-eligibility": "核验工具协作资格", "tool-invite": "邀请整理者", "tool-revoke": "撤销协作", "tool-accept": "接受协作邀请", "tool-decline": "谢绝协作邀请", "tool-leave": "退出协作", "tool-auto-revoke": "状态变化自动撤销协作"} {
 		labels[action] = label
 	}
@@ -395,6 +397,26 @@ func managementChange(action, raw string) string {
 			return `<p>` + state + ` · ` + wikiReason(change.Reason) + `</p>`
 		}
 		return `<p>版本 ` + strconv.Itoa(change.Version) + `</p>`
+	}
+	if action == "wiki-submit" || action == "wiki-review" {
+		var change struct {
+			Version, Base  int
+			Decision, Risk string
+		}
+		if json.Unmarshal([]byte(raw), &change) != nil {
+			return ""
+		}
+		if change.Decision != "" {
+			decision := "退回"
+			if change.Decision == "accept" {
+				decision = "审核通过"
+			}
+			if change.Risk != "" {
+				decision += " · " + wikiReason(change.Risk)
+			}
+			return `<p>` + decision + `</p>`
+		}
+		return `<p>提交版本 ` + strconv.Itoa(change.Version) + ` · 基于版本 ` + strconv.Itoa(change.Base) + `</p>`
 	}
 	if action == "collection-save" {
 		var change struct {
