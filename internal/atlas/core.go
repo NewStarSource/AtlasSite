@@ -118,7 +118,8 @@ func (app *App) renderPageStatus(w http.ResponseWriter, r *http.Request, status 
 		Identity    *Identity
 		Content     template.HTML
 		More        template.HTML
-	}{title, page, identity, template.HTML(content), template.HTML(more)})
+		WikiEnabled bool
+	}{title, page, identity, template.HTML(content), template.HTML(more), app.config.WikiEnabled})
 	if err != nil {
 		respond(w, 503, map[string]string{"code": "RENDER_FAILED"})
 		return

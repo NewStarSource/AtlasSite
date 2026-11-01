@@ -59,6 +59,9 @@ func (app *App) communityPage(w http.ResponseWriter, r *http.Request) {
 		body += `<a href="` + base + suffix + `"` + class + `>` + tab[1] + `</a>`
 	}
 	body += `</nav><section>`
+	if app.config.WikiEnabled {
+		body += `<p class="community-wiki-link"><a href="` + base + `/wiki">Wiki 与发现页 →</a></p>`
+	}
 
 	topics, err := app.listTopics(c.ID)
 	if err != nil {

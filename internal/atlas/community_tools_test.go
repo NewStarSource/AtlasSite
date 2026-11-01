@@ -243,7 +243,7 @@ func TestCommunityToolsMigrationPreservesLegacyData(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Produce an actual version 7 snapshot, then let New run the migration.
-	if _, err := app.db.Exec("DROP TRIGGER tool_collaborator_account_inactive; DROP TRIGGER tool_collaborator_community_inactive; DROP TABLE tool_collaborators; DROP TABLE tool_eligibility; DROP TABLE collection_positions; DROP TABLE collection_versions; DROP TABLE collection_details; DELETE FROM schema_migrations WHERE version>=8;"); err != nil {
+	if _, err := app.db.Exec("DROP TABLE wiki_replies; DROP TABLE wiki_versions; DROP TABLE wiki_pages; DROP TRIGGER tool_collaborator_account_inactive; DROP TRIGGER tool_collaborator_community_inactive; DROP TABLE tool_collaborators; DROP TABLE tool_eligibility; DROP TABLE collection_positions; DROP TABLE collection_versions; DROP TABLE collection_details; DELETE FROM schema_migrations WHERE version>=8;"); err != nil {
 		t.Fatal(err)
 	}
 	backup, err := app.Backup()

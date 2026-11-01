@@ -88,11 +88,12 @@ func (app *App) communityRoutes(router *chi.Mux) {
 		identity, _, _ := app.currentIdentity(r)
 
 		type PageData struct {
-			Title    string
-			Page     string
-			Identity *Identity
-			Content  template.HTML
-			More     template.HTML
+			Title       string
+			Page        string
+			Identity    *Identity
+			Content     template.HTML
+			More        template.HTML
+			WikiEnabled bool
 		}
 
 		var contentBuf strings.Builder
@@ -177,10 +178,11 @@ func (app *App) communityRoutes(router *chi.Mux) {
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_ = app.page.Execute(w, PageData{
-			Title:    "发现社群",
-			Page:     "discover",
-			Identity: identity,
-			Content:  template.HTML(contentBuf.String()),
+			Title:       "发现社群",
+			Page:        "discover",
+			Identity:    identity,
+			Content:     template.HTML(contentBuf.String()),
+			WikiEnabled: app.config.WikiEnabled,
 		})
 	})
 

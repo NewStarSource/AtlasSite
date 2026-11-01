@@ -140,6 +140,34 @@ def check_management(client, account, atlas, account_bin, atlas_bin, account_dir
     expect(form_post(client, atlas, "/admin/team/" + owner + "/remove", {"version": "1"}), 409, "last admin retained")
     print("PASS management with real OIDC sessions: representative scope/save/revoke, team roles, CSRF and stale versions")
     print("PASS community tools: real forms, draft/publish/withdraw, pin/history, guide, collection references and authorization revocation")
+    return helper
+
+
+def check_wiki(client, editor, atlas):
+    form = client.form(atlas + "/wiki/new")
+    values = dict(form.inputs)
+    values.update(title="合成 Wiki 发现线索", summary="待核实的公开线索", body="第一版记录。[^1]", sources="1 | 第一版来源 | https://example.test/wiki-first | " + date.today().isoformat(), community="pixel-game-dev", edit_summary="创建合成线索", license="CC BY-SA 4.0")
+    path = expect(form_post(client, atlas, "/wiki", values), 303, "create Wiki discovery")[1]["Location"]
+    page = expect(editor.request(atlas + path), 200, "public discovery page")[2]
+    assert "第一版来源" in page and "CC BY-SA 4.0" in page and "wiki-source-1" in page
+    edit = dict(values, version="1", body="第二版记录。[^1]", sources="1 | 第二版来源 | https://example.test/wiki-second | " + date.today().isoformat(), edit_summary="另一位用户补充")
+    expect(editor.request(atlas + path + "/edit", edit), 403, "Wiki csrf required")
+    expect(form_post(editor, atlas, path + "/edit", edit), 303, "collaborative discovery edit")
+    expect(form_post(editor, atlas, path + "/edit", edit), 409, "stale discovery edit rejected")
+    historical = expect(editor.request(atlas + path + "/versions/1"), 200, "Wiki source snapshot")[2]
+    assert "第一版来源" in historical and "第二版来源" not in historical
+    assert "<del>" in expect(editor.request(atlas + path + "/diff?from=1&to=2"), 200, "Wiki version diff")[2]
+    root = expect(form_post(editor, atlas, path + "/replies", {"content": "合成 Wiki 根讨论", "license": "CC BY-SA 4.0"}), 303, "Wiki root discussion")[1]["Location"].split("#wiki-reply-")[1]
+    expect(form_post(client, atlas, path + "/replies", {"content": "合成 Wiki 多层讨论", "parent_id": root, "license": "CC BY-SA 4.0"}), 303, "nested Wiki discussion")
+    assert "合成 Wiki 多层讨论" in expect(editor.request(atlas + path), 200, "Wiki discussion tree")[2]
+    assert path not in expect(editor.request(atlas + "/"), 200, "common timeline remains separate")[2]
+    assert "合成 Wiki 发现线索" in expect(editor.request(atlas + "/c/pixel-game-dev/wiki"), 200, "community Wiki list")[2]
+    expect(form_post(client, atlas, path + "/withdraw", {"version": "2", "state": "hidden", "reason": "privacy", "confirm": "withdraw"}), 303, "hide Wiki discovery")
+    for suffix in ("", "/history", "/versions/1", "/diff?from=1&to=2"):
+        expect(editor.request(atlas + path + suffix), 404, "hidden Wiki and history denied")
+    expect(form_post(editor, atlas, path + "/replies", {"content": "隐藏后不能回复", "license": "CC BY-SA 4.0"}), 404, "hidden Wiki write denied")
+    assert path not in expect(editor.request(atlas + "/wiki?q=" + urllib.parse.quote("合成 Wiki")), 200, "hidden Wiki excluded from search")[2]
+    print("PASS Wiki discovery: real forms, collaborative versions/source snapshots, nested replies, timeline separation and hidden-history isolation")
 
 
 def main():
@@ -151,6 +179,11 @@ def main():
     flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
     with tempfile.TemporaryDirectory(prefix="star-core-http-") as root:
         account_dir, atlas_dir, account, atlas = configure(account_bin, atlas_bin, Path(root))
+        # Enable only the isolated test instance; shipped/default configurations stay closed.
+        wiki_config = atlas_dir / ".local/development.json"
+        configuration = json.loads(wiki_config.read_text())
+        configuration["wiki_enabled"] = True
+        wiki_config.write_text(json.dumps(configuration))
         processes = []
         try:
             for binary, directory, origin in ((account_bin, account_dir, account), (atlas_bin, atlas_dir, atlas)):
@@ -197,7 +230,8 @@ def main():
             expect(form_post(client, atlas, "/admin/team", {"user_id": owner}), 403, "management requires fresh reauthentication")
             start = form_post(client, atlas, "/auth/reauthenticate", {})
             authorize(client, account, atlas, username, password, start)
-            check_management(client, account, atlas, account_bin, atlas_bin, account_dir, atlas_dir, owner)
+            helper = check_management(client, account, atlas, account_bin, atlas_bin, account_dir, atlas_dir, owner)
+            check_wiki(client, helper, atlas)
             recovery_result = expect(form_post(client, account, "/api/v1/security/recovery-code", {"password": password}), 200, "recovery code before password change")
             # The one-time secret stays in the isolated client, never in test output.
             recovery_code = re.search(r"<pre>([^<]+)</pre>", recovery_result[2]).group(1)

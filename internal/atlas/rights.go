@@ -88,7 +88,7 @@ func (app *App) settingsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var choices strings.Builder
-	for _, query := range []string{"SELECT id,title FROM posts WHERE author_id=? AND status='published' ORDER BY created_at DESC LIMIT 100", "SELECT id,content FROM replies WHERE author_id=? AND status='published' ORDER BY created_at DESC LIMIT 100"} {
+	for _, query := range []string{"SELECT id,title FROM posts WHERE author_id=? AND status='published' ORDER BY created_at DESC LIMIT 100", "SELECT id,content FROM replies WHERE author_id=? AND status='published' ORDER BY created_at DESC LIMIT 100", "SELECT id,'Wiki 讨论 · '||content FROM wiki_replies WHERE author_id=? AND status='published' ORDER BY created_at DESC LIMIT 100"} {
 		rows, err := app.db.Query(query, i.ID)
 		if err != nil {
 			fail(w, err)
@@ -101,7 +101,7 @@ func (app *App) settingsPage(w http.ResponseWriter, r *http.Request) {
 		}
 		rows.Close()
 	}
-	body += `<section class="panel"><h2>数据导出</h2><a class="btn" href="/my/export">导出数据</a></section><section class="panel danger-panel"><h2>注销星图与新星账户</h2><p>注销立即退出，30 天内可恢复。删除的内容不会随恢复重现。</p><p><a href="/security">验证身份</a></p>` + formStart(r, "/api/v1/me/deactivate") + `<label class="check-row"><input type="checkbox" name="retain_content" value="1"` + checked(retain) + `><span>保留全部已公开内容<small>保留内容继续显示化名和“已注销”标记。</small></span></label><details><summary>仅保留部分内容</summary><p class="field-help">可选择最近 100 条动态和 100 条回复。原帖已删除时，回复不能独立公开。</p><div class="retain-list">` + choices.String() + `</div></details><label class="check-row"><input type="checkbox" name="confirm" value="deactivate" required><span>确认注销账户</span></label><button class="btn-danger">注销账户</button></form></section><section class="panel"><h2>恢复已注销账户</h2><p>注销后 30 天内可验证原密码恢复。</p><a class="btn" href="/recover">查看恢复步骤</a></section>`
+	body += `<section class="panel"><h2>数据导出</h2><a class="btn" href="/my/export">导出数据</a></section><section class="panel danger-panel"><h2>注销星图与新星账户</h2><p>注销立即退出，30 天内可恢复。删除的内容不会随恢复重现。</p><p><a href="/security">验证身份</a></p>` + formStart(r, "/api/v1/me/deactivate") + `<label class="check-row"><input type="checkbox" name="retain_content" value="1"` + checked(retain) + `><span>保留全部已公开内容<small>保留内容继续显示化名和“已注销”标记。</small></span></label><details><summary>仅保留部分内容</summary><p class="field-help">可选择最近的动态、回复和 Wiki 讨论。原帖已删除时，下游讨论不能独立公开。</p><div class="retain-list">` + choices.String() + `</div></details><label class="check-row"><input type="checkbox" name="confirm" value="deactivate" required><span>确认注销账户</span></label><button class="btn-danger">注销账户</button></form></section><section class="panel"><h2>恢复已注销账户</h2><p>注销后 30 天内可验证原密码恢复。</p><a class="btn" href="/recover">查看恢复步骤</a></section>`
 	app.renderPage(w, r, title, "settings", body)
 }
 func (app *App) updateSettings(w http.ResponseWriter, r *http.Request) {
@@ -409,6 +409,8 @@ func (app *App) ownExport(r *http.Request, i *Identity) ([]byte, error) {
 		"subscriptions":       "SELECT kind,object_id,notifications,created_at FROM subscriptions WHERE user_id=?",
 		"tool_collaborations": "SELECT community_id,kind,purpose,state,expires_at,version,updated_at FROM tool_collaborators WHERE user_id=?",
 		"tool_eligibility":    "SELECT community_id,eligible,standard_url,version,updated_at FROM tool_eligibility WHERE user_id=?",
+		"wiki_edits":          `SELECT v.page_id,v.number,v.title,v.summary,v.body,v.fields_json,v.sources_json,v.edit_summary,v.created_at FROM wiki_versions v JOIN wiki_pages p ON p.id=v.page_id WHERE v.editor_id=? AND v.review_status='accepted' AND ` + wikiCommunityVisibleSQL + ` AND p.state='active' AND EXISTS(SELECT 1 FROM wiki_versions cv WHERE cv.page_id=p.id AND cv.number=p.published_version AND cv.review_status='accepted' AND (cv.community_id IS NULL OR EXISTS(SELECT 1 FROM communities cc WHERE cc.id=cv.community_id AND cc.status IN ('active','uncategorized'))))`,
+		"wiki_replies":        `SELECT r.id,r.page_id,r.parent_id,r.content,r.created_at FROM wiki_replies r JOIN wiki_pages p ON p.id=r.page_id JOIN wiki_versions v ON v.page_id=p.id AND v.number=p.published_version WHERE r.author_id=? AND r.status='published' AND p.state='active' AND v.review_status='accepted' AND ` + wikiCommunityVisibleSQL + ` AND NOT EXISTS(WITH RECURSIVE chain(id,parent_id,status) AS (SELECT id,parent_id,status FROM wiki_replies WHERE id=r.id UNION ALL SELECT pr.id,pr.parent_id,pr.status FROM wiki_replies pr JOIN chain ch ON pr.id=ch.parent_id) SELECT 1 FROM chain WHERE status<>'published')`,
 	}
 	for name, query := range queries {
 		rows, err := snapshot.Query(query, i.ID)
@@ -552,7 +554,7 @@ func (app *App) deactivateAtlas(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, id := range retained {
 		var n int
-		if err = tx.QueryRow("SELECT (SELECT count(*) FROM posts WHERE id=? AND author_id=?)+(SELECT count(*) FROM replies WHERE id=? AND author_id=?)", id, i.ID, id, i.ID).Scan(&n); err != nil || n != 1 {
+		if err = tx.QueryRow("SELECT (SELECT count(*) FROM posts WHERE id=? AND author_id=?)+(SELECT count(*) FROM replies WHERE id=? AND author_id=?)+(SELECT count(*) FROM wiki_replies WHERE id=? AND author_id=?)", id, i.ID, id, i.ID, id, i.ID).Scan(&n); err != nil || n != 1 {
 			fail(w, errForbidden)
 			return
 		}

@@ -341,6 +341,8 @@ func (app *App) managementLog(i *Identity, role string, r *http.Request) (string
 	}
 	defer rows.Close()
 	labels := map[string]string{"bootstrap-admin": "初始化管理员", "team-save": "更新团队授权", "team-remove": "撤销团队授权", "representative-save": "更新代表授权", "representative-remove": "撤销代表授权", "community-save": "更新社群资料", "collection-save": "维护社群工具"}
+	labels["wiki-discovery-save"] = "编辑 Wiki 发现页"
+	labels["wiki-withdraw"] = "停止展示 Wiki 页面"
 	for action, label := range map[string]string{"tool-eligibility": "核验工具协作资格", "tool-invite": "邀请整理者", "tool-revoke": "撤销协作", "tool-accept": "接受协作邀请", "tool-decline": "谢绝协作邀请", "tool-leave": "退出协作", "tool-auto-revoke": "状态变化自动撤销协作"} {
 		labels[action] = label
 	}
@@ -376,6 +378,23 @@ type managedCommunity struct {
 func managementChange(action, raw string) string {
 	if raw == "null" {
 		return `<p class="muted">无</p>`
+	}
+	if action == "wiki-discovery-save" || action == "wiki-withdraw" {
+		var change struct {
+			Version       int
+			State, Reason string
+		}
+		if json.Unmarshal([]byte(raw), &change) != nil {
+			return ""
+		}
+		if change.State != "" {
+			state := "已隐藏"
+			if change.State == "deleted" {
+				state = "已删除"
+			}
+			return `<p>` + state + ` · ` + wikiReason(change.Reason) + `</p>`
+		}
+		return `<p>版本 ` + strconv.Itoa(change.Version) + `</p>`
 	}
 	if action == "collection-save" {
 		var change struct {

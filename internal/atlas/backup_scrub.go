@@ -91,6 +91,28 @@ func (app *App) scrubBackupsLocked() error {
 					return err
 				}
 			}
+			var hasWiki int
+			if err = tx.QueryRowContext(ctx, "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='wiki_pages'").Scan(&hasWiki); err != nil {
+				return err
+			}
+			if hasWiki == 1 {
+				for _, op := range records {
+					switch op.Action {
+					case "wiki-withdraw":
+						if err = wipeWikiSQL(tx, op.ObjectID, op.TargetKind, op.Reason, op.CreatedAt); err != nil {
+							return err
+						}
+					case "wiki-reply-delete":
+						if err = wipeWikiReplySQL(tx, op.ObjectID); err != nil {
+							return err
+						}
+					case "deactivate-user":
+						if err = withdrawOwnWikiReplies(tx, op.ObjectID, op.Retained); err != nil {
+							return err
+						}
+					}
+				}
+			}
 			if err = tx.Commit(); err != nil {
 				return err
 			}

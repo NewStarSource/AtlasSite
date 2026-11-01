@@ -197,7 +197,8 @@ func (app *App) browserErrors(next http.Handler) http.Handler {
 			Identity    *Identity
 			Content     template.HTML
 			More        template.HTML
-		}{title, "notice", nil, template.HTML(body), ""})
+			WikiEnabled bool
+		}{title, "notice", nil, template.HTML(body), "", app.config.WikiEnabled})
 	})
 }
 

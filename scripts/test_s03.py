@@ -151,6 +151,7 @@ def main():
             account_process = start(account_bin, account_path, account)
             start(atlas_bin, atlas_path, atlas)
             browser = Browser()
+            expect(browser.request(atlas + "/wiki"), 404, "Wiki prototype disabled by default")
             password = "synthetic integration password"
             username = "s03user"
             expect(browser.request(account + "/api/v1/auth/register", {"username": username, "password": password, "invite_code": invite}, True), 201, "register")

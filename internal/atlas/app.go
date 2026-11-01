@@ -48,9 +48,13 @@ var communityToolsSchema string
 //go:embed 009_tool_collaborators.sql
 var toolCollaboratorsSchema string
 
-const currentSchema = 9
+//go:embed 010_wiki.sql
+var wikiSchema string
+
+const currentSchema = 10
 
 type Config struct {
+	WikiEnabled     bool     `json:"wiki_enabled,omitempty"`
 	TrustedProxies  []string `json:"trusted_proxies,omitempty"`
 	SupportURL      string   `json:"support_url,omitempty"`
 	Mode            string   `json:"mode"`
@@ -227,6 +231,13 @@ func New(config Config) (*App, error) {
 			return nil, err
 		}
 	}
+	if version < 10 {
+		if _, err = transaction.Exec(wikiSchema); err != nil {
+			transaction.Rollback()
+			database.Close()
+			return nil, err
+		}
+	}
 	if err = transaction.Commit(); err != nil {
 		database.Close()
 		return nil, err
@@ -342,6 +353,7 @@ func (app *App) baseHandler() http.Handler {
 	app.subscriptionRoutes(router)
 	app.operationsRoutes(router)
 	app.managementRoutes(router)
+	app.wikiRoutes(router)
 	router.Get("/robots.txt", func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		io.WriteString(writer, "User-agent: *\nDisallow: /\n")

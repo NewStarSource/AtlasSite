@@ -34,6 +34,7 @@ type operation struct {
 	CreatedAt     int64    `json:"created_at"`
 	Previous      string   `json:"previous"`
 	MAC           string   `json:"mac"`
+	Reason        string   `json:"reason,omitempty"`
 }
 
 func operationMAC(key []byte, op operation) string {
@@ -180,6 +181,20 @@ func applyOperationSQL(tx *sql.Tx, op operation) error {
 	var query string
 	var args []any
 	switch op.Action {
+	case "wiki-changed":
+		// Newer public edits are absent from the older snapshot; require fresh review.
+		query = "UPDATE wiki_pages SET state='hidden',latest_version=max(latest_version,?)+1,updated_at=? WHERE id=?"
+		args = []any{op.VersionNumber, op.CreatedAt, op.ObjectID}
+	case "wiki-withdraw":
+		if err := wipeWikiSQL(tx, op.ObjectID, op.TargetKind, op.Reason, op.CreatedAt); err != nil {
+			return err
+		}
+		query = "SELECT 1"
+	case "wiki-reply-delete":
+		if err := wipeWikiReplySQL(tx, op.ObjectID); err != nil {
+			return err
+		}
+		query = "SELECT 1"
 	case "collection-changed":
 		// A newer edit cannot be reconstructed from the journal, which contains no text.
 		// Keep the older snapshot private until an authorized maintainer reviews it.
@@ -290,6 +305,11 @@ func applyOperationSQL(tx *sql.Tx, op operation) error {
 		}
 		args = []any{v, op.ObjectID}
 	case "deactivate-user", "retain-user":
+		if op.Action == "deactivate-user" {
+			if err := withdrawOwnWikiReplies(tx, op.ObjectID, op.Retained); err != nil {
+				return err
+			}
+		}
 		if _, err := tx.Exec("DELETE FROM retained_objects WHERE user_id=?", op.ObjectID); err != nil {
 			return err
 		}
@@ -517,6 +537,9 @@ func (app *App) maintenanceGate(next http.Handler) http.Handler {
 			allowed := r.URL.Path == "/api/v1/cases" || strings.HasPrefix(r.URL.Path, "/auth/") || strings.HasPrefix(r.URL.Path, "/api/v1/security/") || r.URL.Path == "/api/v1/me/deactivate" || (mode == "readonly" && r.URL.Path == "/api/v1/me/export")
 			parts := strings.Split(r.URL.Path, "/")
 			if len(parts) == 5 && parts[1] == "my" && parts[2] == "community-tools" && parts[3] != "" && (parts[4] == "leave" || parts[4] == "decline") {
+				allowed = true
+			}
+			if mode == "readonly" && ((len(parts) == 4 && parts[1] == "wiki" && parts[2] != "" && parts[3] == "withdraw") || (len(parts) == 6 && parts[1] == "wiki" && parts[2] != "" && parts[3] == "replies" && parts[4] != "" && parts[5] == "delete")) {
 				allowed = true
 			}
 			if !allowed {
