@@ -1,6 +1,6 @@
 # StarAtlas 星图
 
-Go + chi + SQLite 社群与内容服务。账户由相邻的 StarAccount 独立持有，星图不保存密码。当前代码的数据库版本为 **10**，账户数据库版本为 **6**。生产采用单台 Ubuntu 24.04、本机 TLS 反向代理与独立服务用户部署；十一月本地开发改动尚未部署，服务器实际版本需另行核对。
+Go + chi + SQLite 社群与内容服务。账户由相邻的 StarAccount 独立持有，星图不保存密码。当前代码的数据库版本为 **11**，账户数据库版本为 **6**。生产采用单台 Ubuntu 24.04、本机 TLS 反向代理与独立服务用户部署；十一月本地开发改动尚未部署，服务器实际版本需另行核对。
 
 ## 本地启动
 
@@ -29,7 +29,7 @@ node scripts/test_ui_actions.cjs
 python scripts/check_release.py --output .local/release-unique
 ```
 
-Linux CI 可加 `--race`。release 目录包含 Linux amd64 程序、manifest.json、部署模板与运维脚本；manifest 记录两个仓库的 commit、未提交状态、工具链与 SHA-256。部署前将审阅通过的改动提交，使用明确版本重建，不发布 dirty 产物。双服务工作流 `.github/workflows/release.yml` 要求填写两个精确 commit 和账户仓库；私有账户仓库使用只读 `ACCOUNT_READ_TOKEN`。StarAccount 当前本地未配置远端，需要先创建并推送其仓库，才能运行这一远端工作流。
+Linux CI 可加 `--race`。release 目录包含 Linux amd64 程序、manifest.json、部署模板、运维脚本与 `licenses/`；manifest 记录两个仓库的 commit、未提交状态、工具链、二进制及许可清单摘要。部署前将审阅通过的改动提交，使用明确版本重建，不发布 dirty 产物。双服务工作流 `.github/workflows/release.yml` 要求填写两个精确 commit 和账户仓库；私有账户仓库使用只读 `ACCOUNT_READ_TOKEN`。两端本地均已配置 GitHub 远端，但远端是否包含本次提交及发布 CI 的实际结果需另行核验。
 
 2026-10-24 本地验收通过两端 test/vet、Go 1.27.3 下 govulncheck（可达漏洞 0）、双服务 HTTP/JS 回归、真实 Chrome 1440px/390px 注册与找回流程，以及 Ubuntu 24.04 子系统中采用临时可信 CA 的生产 HTTPS/OIDC 联调。Windows 未运行 race，服务器原生 Linux race、双服务完整联调及真实域名 Chrome 桌面/手机验收也已通过。站点现已部署至 https://atlas.runnewstar.xyz 和 https://account.runnewstar.xyz，服务器地址 38.246.251.26，SSH 12721，已验证整机重启后恢复。外部通知与异机恢复仍待接入实际目的地，当前仅有本机加密备份。
 
@@ -44,6 +44,8 @@ Linux CI 可加 `--race`。release 目录包含 Linux amd64 程序、manifest.js
 Wiki 内部原型使用独立的 `wiki_enabled` 开关，默认关闭。支持发现页共同编辑，以及社群、已公开作品两类条目的私有提交和人工审核发布，含公开来源、脚注、版本差异、多层讨论、建议修改与风险清理。内容不进入普通动态；待审修订不能替换公开版本。开启范围、迁移和验证方式见 [Wiki 内部原型说明](docs/WIKI_PROTOTYPE.md)。
 
 ## 月度记录
+
+原创代码采用 [GPLv3](LICENSE)，代码与用户内容的边界及第三方声明见 [NOTICE](NOTICE.md)。发布前的运行核对见[内部运行验收清单](docs/INTERNAL_OPERATIONS_2026-11.md)。
 
 2026 年 11 月暂不公测，继续内部使用、功能试做与运行验证。此安排不自动改变服务器的访问控制配置。
 

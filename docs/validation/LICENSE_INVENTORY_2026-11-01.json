@@ -1,0 +1,620 @@
+{
+  "projects": {
+    "atlas": [
+      {
+        "file": "licenses/atlas/LICENSE",
+        "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+      },
+      {
+        "file": "licenses/atlas/NOTICE.md",
+        "sha256": "07239ef7eb4d86f6ff28ddb108272a7118f5b9fa38ef7f63a5e94d06816cad8f"
+      }
+    ],
+    "account": [
+      {
+        "file": "licenses/account/LICENSE",
+        "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+      },
+      {
+        "file": "licenses/account/NOTICE.md",
+        "sha256": "819d6a7c0e1e515b33fd4b27e542d966e7759b9e616aac30d8f7ac130de9e7a7"
+      }
+    ]
+  },
+  "modules": {
+    "github.com/dustin/go-humanize@v1.0.1": {
+      "path": "github.com/dustin/go-humanize",
+      "version": "v1.0.1",
+      "used_by": [
+        "atlas",
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/github.com/dustin/go-humanize/v1.0.1/LICENSE",
+          "sha256": "a973b4498c13eb74baa2a8e5c351426a6826f2fcdd909916dbe53ee2e755fd71"
+        }
+      ]
+    },
+    "github.com/mattn/go-isatty@v0.0.24": {
+      "path": "github.com/mattn/go-isatty",
+      "version": "v0.0.24",
+      "used_by": [
+        "atlas",
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/github.com/mattn/go-isatty/v0.0.24/LICENSE",
+          "sha256": "08eab1118c80885fa1fa6a6dd7303f65a379fcb3733e063d20d1bbc2c76e6fa1"
+        }
+      ]
+    },
+    "github.com/ncruces/go-strftime@v1.0.0": {
+      "path": "github.com/ncruces/go-strftime",
+      "version": "v1.0.0",
+      "used_by": [
+        "atlas",
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/github.com/ncruces/go-strftime/v1.0.0/LICENSE",
+          "sha256": "38ae43959daf953a393a585b2988672cb65a5a541aca0d0be5e72595a0a16883"
+        }
+      ]
+    },
+    "golang.org/x/sys@v0.48.0": {
+      "path": "golang.org/x/sys",
+      "version": "v0.48.0",
+      "used_by": [
+        "atlas",
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/golang.org/x/sys/v0.48.0/LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        },
+        {
+          "file": "licenses/modules/golang.org/x/sys/v0.48.0/PATENTS",
+          "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc"
+        }
+      ]
+    },
+    "modernc.org/libc@v1.77.1": {
+      "path": "modernc.org/libc",
+      "version": "v1.77.1",
+      "used_by": [
+        "atlas",
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/modernc.org/libc/v1.77.1/AUTHORS",
+          "sha256": "40224528f3c7363534f59521d803a4eb627966b334d732bfc68a788655cb2545"
+        },
+        {
+          "file": "licenses/modules/modernc.org/libc/v1.77.1/LICENSE",
+          "sha256": "95ff867eb55a56935fa7492406cfa953fb7c13ca73f4c0a86ae05756b4605600"
+        },
+        {
+          "file": "licenses/modules/modernc.org/libc/v1.77.1/LICENSE-3RD-PARTY.md",
+          "sha256": "f597097efe3d97021f89170746bd3a0fb9a8b6fb26b82043ed68a4e0283bee6c"
+        },
+        {
+          "file": "licenses/modules/modernc.org/libc/v1.77.1/testdata/nsz.repo.hu/libc-test/AUTHORS",
+          "sha256": "d04faa7fbed5d7e30d5f55c014c0f5e702245ca5ba62a39c7bc4df8724853a6c"
+        },
+        {
+          "file": "licenses/modules/modernc.org/libc/v1.77.1/testdata/nsz.repo.hu/libc-test/COPYRIGHT",
+          "sha256": "41b8f2e2706012eb534f89e72ff547308cb81dcb9acf077c40a9058a7c06088d"
+        },
+        {
+          "file": "licenses/modules/modernc.org/libc/v1.77.1/testdata/nsz.repo.hu/libc-test/src/math/crlibm/COPYING",
+          "sha256": "dcc100d4161cc0b7177545ab6e47216f84857cda3843847c792a25289852dcaa"
+        }
+      ]
+    },
+    "github.com/remyoudompheng/bigfft@v0.0.0-20230129092748-24d4a6f8daec": {
+      "path": "github.com/remyoudompheng/bigfft",
+      "version": "v0.0.0-20230129092748-24d4a6f8daec",
+      "used_by": [
+        "atlas",
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/github.com/remyoudompheng/bigfft/v0.0.0-20230129092748-24d4a6f8daec/LICENSE",
+          "sha256": "dd26a7abddd02e2d0aba97805b31f248ef7835d9e10da289b22e3b8ab78b324d"
+        }
+      ]
+    },
+    "modernc.org/mathutil@v1.7.1": {
+      "path": "modernc.org/mathutil",
+      "version": "v1.7.1",
+      "used_by": [
+        "atlas",
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/modernc.org/mathutil/v1.7.1/AUTHORS",
+          "sha256": "51fcdd68bb605f080283bb6eabb72452591289650599d3d67603381834e536af"
+        },
+        {
+          "file": "licenses/modules/modernc.org/mathutil/v1.7.1/LICENSE",
+          "sha256": "bfa9bf72a72ca009fd62a8f84fca3dca67e51d93af96352723646599898b6cf5"
+        },
+        {
+          "file": "licenses/modules/modernc.org/mathutil/v1.7.1/mersenne/AUTHORS",
+          "sha256": "f79ff8b413938c3ce7c60db12242a663d8e840249bd838fcf58f4aaccfec5454"
+        },
+        {
+          "file": "licenses/modules/modernc.org/mathutil/v1.7.1/mersenne/LICENSE",
+          "sha256": "c05630f9ca899ea094620d37daea6ba66f99adbf9268ea5fea9db607e1102bd9"
+        }
+      ]
+    },
+    "modernc.org/memory@v1.12.1": {
+      "path": "modernc.org/memory",
+      "version": "v1.12.1",
+      "used_by": [
+        "atlas",
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/modernc.org/memory/v1.12.1/AUTHORS",
+          "sha256": "df1f424436f279309de85b82e494d548297a2570e9b5794630d7e72c9eb50b6a"
+        },
+        {
+          "file": "licenses/modules/modernc.org/memory/v1.12.1/LICENSE",
+          "sha256": "59895e669f48f168b6b858358f6005779cdf40a265f7828813061b56af67b496"
+        },
+        {
+          "file": "licenses/modules/modernc.org/memory/v1.12.1/LICENSE-GO",
+          "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+        },
+        {
+          "file": "licenses/modules/modernc.org/memory/v1.12.1/LICENSE-LOGO",
+          "sha256": "5ae5bee3072a841376451b48d8cfcec7188e10543926d5870828d36c8a750dc5"
+        },
+        {
+          "file": "licenses/modules/modernc.org/memory/v1.12.1/LICENSE-MMAP-GO",
+          "sha256": "c2eba69f20d05414538c3a5df7694dde392e065ff70882e1625e90f5d6659fff"
+        }
+      ]
+    },
+    "modernc.org/sqlite@v1.60.1": {
+      "path": "modernc.org/sqlite",
+      "version": "v1.60.1",
+      "used_by": [
+        "atlas",
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/modernc.org/sqlite/v1.60.1/AUTHORS",
+          "sha256": "6bff0356ad7a2aee1961df765de4c5beef4b1d0a00fa2d8704ecb6b6043b4922"
+        },
+        {
+          "file": "licenses/modules/modernc.org/sqlite/v1.60.1/LICENSE",
+          "sha256": "c6fe05491a60ae13bcd223088d2705e36dede24e5587226231d2459ada5c4822"
+        },
+        {
+          "file": "licenses/modules/modernc.org/sqlite/v1.60.1/LICENSE-3RD-PARTY.md",
+          "sha256": "b4366b9c27a9364633e015011a231913ed19bf1228f335bf617e50a6f7b168a6"
+        },
+        {
+          "file": "licenses/modules/modernc.org/sqlite/v1.60.1/LICENSE-SQLITE",
+          "sha256": "8438c9c89b849131ead81d5435cb97fcf052df5b0b286dda8a2d4c29e6cb3fd0"
+        },
+        {
+          "file": "licenses/modules/modernc.org/sqlite/v1.60.1/LICENSE-SQLITE_VEC",
+          "sha256": "6ce72bbe12d975bd5286e5ab0a064c069693300c47bccbc57bec18485f1621ea"
+        }
+      ]
+    },
+    "github.com/go-jose/go-jose/v4@v4.1.4": {
+      "path": "github.com/go-jose/go-jose/v4",
+      "version": "v4.1.4",
+      "used_by": [
+        "atlas",
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/github.com/go-jose/go-jose/v4/v4.1.4/json/LICENSE",
+          "sha256": "dd26a7abddd02e2d0aba97805b31f248ef7835d9e10da289b22e3b8ab78b324d"
+        },
+        {
+          "file": "licenses/modules/github.com/go-jose/go-jose/v4/v4.1.4/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    "golang.org/x/oauth2@v0.37.0": {
+      "path": "golang.org/x/oauth2",
+      "version": "v0.37.0",
+      "used_by": [
+        "atlas",
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/golang.org/x/oauth2/v0.37.0/LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        }
+      ]
+    },
+    "github.com/coreos/go-oidc/v3@v3.21.0": {
+      "path": "github.com/coreos/go-oidc/v3",
+      "version": "v3.21.0",
+      "used_by": [
+        "atlas"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/github.com/coreos/go-oidc/v3/v3.21.0/LICENSE",
+          "sha256": "cb5e8e7e5f4a3988e1063c142c60dc2df75605f4c46515e776e3aca6df976e14"
+        },
+        {
+          "file": "licenses/modules/github.com/coreos/go-oidc/v3/v3.21.0/NOTICE",
+          "sha256": "dccd26c6fd9c296daf44d0bc56bb4efc566edd4880381b3331c9a63e6e471338"
+        }
+      ]
+    },
+    "github.com/go-chi/chi/v5@v5.3.0": {
+      "path": "github.com/go-chi/chi/v5",
+      "version": "v5.3.0",
+      "used_by": [
+        "atlas"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/github.com/go-chi/chi/v5/v5.3.0/LICENSE",
+          "sha256": "a2d51b7515acfaff2f7a88688650f2fc4fd99561383e72bba2305e3db59a1647"
+        }
+      ]
+    },
+    "github.com/google/uuid@v1.6.0": {
+      "path": "github.com/google/uuid",
+      "version": "v1.6.0",
+      "used_by": [
+        "atlas",
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/github.com/google/uuid/v1.6.0/LICENSE",
+          "sha256": "0a8d61ed3cbfd5312326e8126c31ce9c627a283adc99131b56896d29ada04b2d"
+        }
+      ]
+    },
+    "github.com/gorilla/securecookie@v1.1.2": {
+      "path": "github.com/gorilla/securecookie",
+      "version": "v1.1.2",
+      "used_by": [
+        "atlas",
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/github.com/gorilla/securecookie/v1.1.2/LICENSE",
+          "sha256": "0b77fdea862f869ef4f201ac5649bdbd38ccb055c7f6454dffae9e2adb4941c1"
+        }
+      ]
+    },
+    "github.com/gorilla/csrf@v1.7.3": {
+      "path": "github.com/gorilla/csrf",
+      "version": "v1.7.3",
+      "used_by": [
+        "atlas",
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/github.com/gorilla/csrf/v1.7.3/LICENSE",
+          "sha256": "0b77fdea862f869ef4f201ac5649bdbd38ccb055c7f6454dffae9e2adb4941c1"
+        }
+      ]
+    },
+    "github.com/yuin/goldmark@v1.7.17": {
+      "path": "github.com/yuin/goldmark",
+      "version": "v1.7.17",
+      "used_by": [
+        "atlas",
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/github.com/yuin/goldmark/v1.7.17/LICENSE",
+          "sha256": "c1d6f653c38c80294dc7994647ba0dcc508ce64a86996303c804efa2f7982bff"
+        }
+      ]
+    },
+    "golang.org/x/image@v0.38.0": {
+      "path": "golang.org/x/image",
+      "version": "v0.38.0",
+      "used_by": [
+        "atlas"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/golang.org/x/image/v0.38.0/LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        },
+        {
+          "file": "licenses/modules/golang.org/x/image/v0.38.0/PATENTS",
+          "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc"
+        }
+      ]
+    },
+    "github.com/go-chi/chi/v5@v5.3.2": {
+      "path": "github.com/go-chi/chi/v5",
+      "version": "v5.3.2",
+      "used_by": [
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/github.com/go-chi/chi/v5/v5.3.2/LICENSE",
+          "sha256": "a2d51b7515acfaff2f7a88688650f2fc4fd99561383e72bba2305e3db59a1647"
+        }
+      ]
+    },
+    "github.com/wneessen/go-mail@v0.8.1": {
+      "path": "github.com/wneessen/go-mail",
+      "version": "v0.8.1",
+      "used_by": [
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/github.com/wneessen/go-mail/v0.8.1/LICENSE",
+          "sha256": "2927707b5b4e9d569831dfcb81b43a53da5a2d57fc6564e3f43b4580ae05a692"
+        },
+        {
+          "file": "licenses/modules/github.com/wneessen/go-mail/v0.8.1/smtp/LICENSE",
+          "sha256": "4214d8afcc3620b7fb7aa9c7695e8f659a90011a830caf0e0c72a385d7d3b2a5"
+        }
+      ]
+    },
+    "golang.org/x/crypto@v0.57.0": {
+      "path": "golang.org/x/crypto",
+      "version": "v0.57.0",
+      "used_by": [
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/golang.org/x/crypto/v0.57.0/LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        },
+        {
+          "file": "licenses/modules/golang.org/x/crypto/v0.57.0/PATENTS",
+          "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc"
+        }
+      ]
+    },
+    "golang.org/x/text@v0.42.0": {
+      "path": "golang.org/x/text",
+      "version": "v0.42.0",
+      "used_by": [
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/golang.org/x/text/v0.42.0/LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        },
+        {
+          "file": "licenses/modules/golang.org/x/text/v0.42.0/PATENTS",
+          "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc"
+        }
+      ]
+    },
+    "github.com/muhlemmer/gu@v0.3.1": {
+      "path": "github.com/muhlemmer/gu",
+      "version": "v0.3.1",
+      "used_by": [
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/github.com/muhlemmer/gu/v0.3.1/LICENSE",
+          "sha256": "6b0382b16279f26ff69014300541967a356a666eb0b91b422f6862f6b7dad17e"
+        }
+      ]
+    },
+    "github.com/zitadel/oidc/v3@v3.51.11": {
+      "path": "github.com/zitadel/oidc/v3",
+      "version": "v3.51.11",
+      "used_by": [
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/github.com/zitadel/oidc/v3/v3.51.11/LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        },
+        {
+          "file": "licenses/modules/github.com/zitadel/oidc/v3/v3.51.11/NOTICE",
+          "sha256": "2ed0f0df4113d5dceccbf48a31109ae01c806bf2b16af0affb3409c666b37a26"
+        }
+      ]
+    },
+    "github.com/zitadel/schema@v1.3.2": {
+      "path": "github.com/zitadel/schema",
+      "version": "v1.3.2",
+      "used_by": [
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/github.com/zitadel/schema/v1.3.2/LICENSE",
+          "sha256": "0b77fdea862f869ef4f201ac5649bdbd38ccb055c7f6454dffae9e2adb4941c1"
+        }
+      ]
+    },
+    "github.com/bmatcuk/doublestar/v4@v4.10.2": {
+      "path": "github.com/bmatcuk/doublestar/v4",
+      "version": "v4.10.2",
+      "used_by": [
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/github.com/bmatcuk/doublestar/v4/v4.10.2/LICENSE",
+          "sha256": "2391eb152e1f700051c1618a7aaa7ad86186585190ca9a30e7579c9b9d459332"
+        }
+      ]
+    },
+    "github.com/muhlemmer/httpforwarded@v0.1.0": {
+      "path": "github.com/muhlemmer/httpforwarded",
+      "version": "v0.1.0",
+      "used_by": [
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/github.com/muhlemmer/httpforwarded/v0.1.0/LICENSE",
+          "sha256": "a7416b5efb6c7488d8a2819bf77fb87abec1d0df2239703cee0db42807494a62"
+        }
+      ]
+    },
+    "github.com/rs/cors@v1.11.1": {
+      "path": "github.com/rs/cors",
+      "version": "v1.11.1",
+      "used_by": [
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/github.com/rs/cors/v1.11.1/LICENSE",
+          "sha256": "c21f3b628875c093885ba085d13959b5e78841d64a8fe76c10ba7293aec32fc7"
+        }
+      ]
+    },
+    "github.com/go-logr/logr@v1.4.4": {
+      "path": "github.com/go-logr/logr",
+      "version": "v1.4.4",
+      "used_by": [
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/github.com/go-logr/logr/v1.4.4/LICENSE",
+          "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1"
+        }
+      ]
+    },
+    "github.com/go-logr/stdr@v1.2.2": {
+      "path": "github.com/go-logr/stdr",
+      "version": "v1.2.2",
+      "used_by": [
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/github.com/go-logr/stdr/v1.2.2/LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ]
+    },
+    "go.opentelemetry.io/auto/sdk@v1.2.1": {
+      "path": "go.opentelemetry.io/auto/sdk",
+      "version": "v1.2.1",
+      "used_by": [
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/go.opentelemetry.io/auto/sdk/v1.2.1/LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ]
+    },
+    "go.opentelemetry.io/otel@v1.46.0": {
+      "path": "go.opentelemetry.io/otel",
+      "version": "v1.46.0",
+      "used_by": [
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/go.opentelemetry.io/otel/v1.46.0/LICENSE",
+          "sha256": "1ae07514be1d7bb33f0698f8d91fb51b8b9fe1463157ec1c72081a49b9bc6f40"
+        }
+      ]
+    },
+    "github.com/cespare/xxhash/v2@v2.3.0": {
+      "path": "github.com/cespare/xxhash/v2",
+      "version": "v2.3.0",
+      "used_by": [
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/github.com/cespare/xxhash/v2/v2.3.0/LICENSE.txt",
+          "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+        }
+      ]
+    },
+    "go.opentelemetry.io/otel/trace@v1.46.0": {
+      "path": "go.opentelemetry.io/otel/trace",
+      "version": "v1.46.0",
+      "used_by": [
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/go.opentelemetry.io/otel/trace/v1.46.0/LICENSE",
+          "sha256": "1ae07514be1d7bb33f0698f8d91fb51b8b9fe1463157ec1c72081a49b9bc6f40"
+        }
+      ]
+    },
+    "go.opentelemetry.io/otel/metric@v1.46.0": {
+      "path": "go.opentelemetry.io/otel/metric",
+      "version": "v1.46.0",
+      "used_by": [
+        "account"
+      ],
+      "notices": [
+        {
+          "file": "licenses/modules/go.opentelemetry.io/otel/metric/v1.46.0/LICENSE",
+          "sha256": "1ae07514be1d7bb33f0698f8d91fb51b8b9fe1463157ec1c72081a49b9bc6f40"
+        }
+      ]
+    }
+  },
+  "toolchains": {
+    "atlas": {
+      "version": "go version go1.27.3 windows/amd64",
+      "notices": [
+        {
+          "file": "licenses/atlas/GO-LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        },
+        {
+          "file": "licenses/atlas/GO-PATENTS",
+          "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc"
+        }
+      ]
+    },
+    "account": {
+      "version": "go version go1.27.3 windows/amd64",
+      "notices": [
+        {
+          "file": "licenses/account/GO-LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        },
+        {
+          "file": "licenses/account/GO-PATENTS",
+          "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc"
+        }
+      ]
+    }
+  }
+}

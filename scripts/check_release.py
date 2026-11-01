@@ -1,6 +1,7 @@
 """Verify both pinned local checkouts; build a reproducible Ubuntu release directory."""
 import argparse, hashlib, json, os, shutil, subprocess, sys
 from pathlib import Path
+from release_licenses import package_licenses
 
 def run(cmd,cwd,env=None):subprocess.run(cmd,cwd=cwd,env=env,check=True)
 def output(cmd,cwd):return subprocess.check_output(cmd,cwd=cwd,text=True).strip()
@@ -29,6 +30,9 @@ def main():
     for name in ('prepare_production.py','watchdog.py','export_recovery_bundle.sh'):
         shutil.copyfile(atlas/'scripts'/name,dest/'scripts'/name)
     run([sys.executable,str(atlas/'scripts/test_watchdog.py')],atlas)
+    package_licenses(atlas,account,dest)
+    meta['license_inventory']='licenses/inventory.json'
+    meta['license_inventory_sha256']=hashlib.sha256((dest/'licenses/inventory.json').read_bytes()).hexdigest()
     meta['sha256']={f.relative_to(dest).as_posix():hashlib.sha256(f.read_bytes()).hexdigest() for f in (dest/'bin').iterdir()}
     (dest/'manifest.json').write_text(json.dumps(meta,indent=2),encoding='utf-8')
     print('Release prepared. Review manifest dirty flags; deploy only reviewed revisions.')
