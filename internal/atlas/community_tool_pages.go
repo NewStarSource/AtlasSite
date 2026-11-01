@@ -10,8 +10,12 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func toolNav(community string) string {
-	return `<div class="action-row"><a href="/admin/communities/` + pathID(community) + `">社群资料</a><a href="` + toolBase(community) + `">公告、指引与合集</a></div>`
+func toolNav(community, role string) string {
+	body := `<div class="action-row">`
+	if role != "organizer" {
+		body += `<a href="/admin/communities/` + pathID(community) + `">社群资料</a><a href="` + collaborationBase(community) + `">协作授权</a>`
+	}
+	return body + `<a href="` + toolBase(community) + `">公告、指引与合集</a></div>`
 }
 
 func (app *App) communityToolsPage(w http.ResponseWriter, r *http.Request) {
@@ -20,14 +24,25 @@ func (app *App) communityToolsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	community := chi.URLParam(r, "id")
-	rows, err := app.db.Query(`SELECT c.id,c.type,c.title,c.status,c.updated_at,COALESCE(d.pinned,0) FROM collections c LEFT JOIN collection_details d ON d.collection_id=c.id WHERE c.community_id=? ORDER BY COALESCE(d.pinned,0) DESC,c.display_order,c.updated_at DESC,c.id LIMIT ? OFFSET ?`, community, pageSize+1, pageOffset(r))
+	kinds := []string{}
+	args := []any{community}
+	holders := []string{}
+	for _, kind := range []string{"announcement", "guide", "discussion"} {
+		if canMaintainTool(app.db, i.ID, community, kind) {
+			kinds = append(kinds, kind)
+			holders = append(holders, "?")
+			args = append(args, kind)
+		}
+	}
+	args = append(args, pageSize+1, pageOffset(r))
+	rows, err := app.db.Query(`SELECT c.id,c.type,c.title,c.status,c.updated_at,COALESCE(d.pinned,0) FROM collections c LEFT JOIN collection_details d ON d.collection_id=c.id WHERE c.community_id=? AND c.type IN (`+strings.Join(holders, ",")+`) ORDER BY COALESCE(d.pinned,0) DESC,c.display_order,c.updated_at DESC,c.id LIMIT ? OFFSET ?`, args...)
 	if err != nil {
 		fail(w, err)
 		return
 	}
 	defer rows.Close()
-	body := managementHeading(r, i, role) + toolNav(community) + `<section class="admin-editor"><h2>社群工具</h2><div class="action-row">`
-	for _, kind := range []string{"announcement", "guide", "discussion"} {
+	body := managementHeading(r, i, role) + toolNav(community, role) + `<section class="admin-editor"><h2>社群工具</h2><div class="action-row">`
+	for _, kind := range kinds {
 		body += `<a class="btn btn-secondary" href="` + toolBase(community) + `/new?kind=` + kind + `">新建` + toolLabel(kind) + `</a>`
 	}
 	body += `</div></section><div class="admin-list">`
@@ -81,6 +96,10 @@ func (app *App) communityToolEditor(w http.ResponseWriter, r *http.Request) {
 		fail(w, errInput)
 		return
 	}
+	if !canMaintainTool(app.db, i.ID, community, t.Kind) {
+		denyToolAccess(w)
+		return
+	}
 	app.renderCommunityToolEditor(w, r, i, role, t, id != "", 200, "")
 }
 
@@ -90,7 +109,7 @@ func (app *App) renderCommunityToolEditor(w http.ResponseWriter, r *http.Request
 	if existing {
 		path += "/" + pathID(id)
 	}
-	body := managementHeading(r, i, role) + toolNav(community) + `<section class="admin-editor"><div class="admin-row-heading"><h2>` + toolLabel(t.Kind) + `</h2>`
+	body := managementHeading(r, i, role) + toolNav(community, role) + `<section class="admin-editor"><div class="admin-row-heading"><h2>` + toolLabel(t.Kind) + `</h2>`
 	if existing {
 		body += `<a href="` + path + `/history">修改记录</a>`
 	}
@@ -146,6 +165,10 @@ func (app *App) communityToolHistory(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
+	if !canMaintainTool(app.db, i.ID, community, t.Kind) {
+		denyToolAccess(w)
+		return
+	}
 	rows, err := app.db.Query(`SELECT v.version,v.title,v.description,v.content,v.status,v.display_order,v.pinned,v.changed_at,v.summary,COALESCE(u.alias,'历史维护者'),v.refs_json FROM collection_versions v LEFT JOIN users u ON u.id=v.editor_id AND u.status='active' WHERE v.collection_id=? ORDER BY v.version DESC LIMIT ? OFFSET ?`, id, pageSize+1, pageOffset(r))
 	if err != nil {
 		fail(w, err)
@@ -172,7 +195,7 @@ func (app *App) communityToolHistory(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	body := managementHeading(r, i, role) + toolNav(community) + `<div class="admin-row-heading"><h2>修改记录 · ` + esc(t.Title) + `</h2><a href="` + toolBase(community) + `/` + pathID(id) + `">返回编辑</a></div>`
+	body := managementHeading(r, i, role) + toolNav(community, role) + `<div class="admin-row-heading"><h2>修改记录 · ` + esc(t.Title) + `</h2><a href="` + toolBase(community) + `/` + pathID(id) + `">返回编辑</a></div>`
 	for n, e := range entries {
 		if n == pageSize {
 			break

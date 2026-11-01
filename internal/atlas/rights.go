@@ -397,16 +397,18 @@ func (app *App) ownExport(r *http.Request, i *Identity) ([]byte, error) {
 	defer snapshot.Close()
 	result := map[string]any{"snapshot_at": time.Now().UTC().Format(time.RFC3339), "alias": i.Alias}
 	queries := map[string]string{
-		"posts":         "SELECT p.id,p.title,p.content,p.status,p.license,p.version_number,p.created_at,p.updated_at FROM posts p WHERE p.author_id=? AND NOT EXISTS(SELECT 1 FROM restrictions WHERE object_id=p.id AND removed_at IS NULL)",
-		"replies":       `SELECT r.id,r.post_id,r.content,r.status,r.created_at,r.updated_at FROM replies r JOIN posts p ON p.id=r.post_id WHERE r.author_id=? AND ` + visiblePostSQL + ` AND NOT EXISTS(WITH RECURSIVE chain(id,parent_id,status) AS (SELECT id,parent_id,status FROM replies WHERE id=r.id UNION ALL SELECT parent.id,parent.parent_id,parent.status FROM replies parent JOIN chain ch ON parent.id=ch.parent_id) SELECT 1 FROM chain WHERE status<>'published' OR EXISTS(SELECT 1 FROM restrictions WHERE object_id=chain.id AND removed_at IS NULL))`,
-		"bookmarks":     "SELECT post_id,created_at FROM post_bookmarks WHERE identity_id=?",
-		"likes":         "SELECT post_id,created_at FROM post_likes WHERE user_id=?",
-		"settings":      "SELECT hide_relations,reply_notifications,retain_content FROM user_settings WHERE user_id=?",
-		"blocks":        "SELECT target_id,created_at FROM blocks WHERE owner_id=?",
-		"notifications": "SELECT id,kind,object_id,created_at,read_at FROM notifications WHERE user_id=?",
-		"cases":         "SELECT id,kind,status,received_at,due_at,decision FROM cases WHERE user_id=?",
-		"alias_history": "SELECT alias,created_at FROM alias_history WHERE user_id=?",
-		"subscriptions": "SELECT kind,object_id,notifications,created_at FROM subscriptions WHERE user_id=?",
+		"posts":               "SELECT p.id,p.title,p.content,p.status,p.license,p.version_number,p.created_at,p.updated_at FROM posts p WHERE p.author_id=? AND NOT EXISTS(SELECT 1 FROM restrictions WHERE object_id=p.id AND removed_at IS NULL)",
+		"replies":             `SELECT r.id,r.post_id,r.content,r.status,r.created_at,r.updated_at FROM replies r JOIN posts p ON p.id=r.post_id WHERE r.author_id=? AND ` + visiblePostSQL + ` AND NOT EXISTS(WITH RECURSIVE chain(id,parent_id,status) AS (SELECT id,parent_id,status FROM replies WHERE id=r.id UNION ALL SELECT parent.id,parent.parent_id,parent.status FROM replies parent JOIN chain ch ON parent.id=ch.parent_id) SELECT 1 FROM chain WHERE status<>'published' OR EXISTS(SELECT 1 FROM restrictions WHERE object_id=chain.id AND removed_at IS NULL))`,
+		"bookmarks":           "SELECT post_id,created_at FROM post_bookmarks WHERE identity_id=?",
+		"likes":               "SELECT post_id,created_at FROM post_likes WHERE user_id=?",
+		"settings":            "SELECT hide_relations,reply_notifications,retain_content FROM user_settings WHERE user_id=?",
+		"blocks":              "SELECT target_id,created_at FROM blocks WHERE owner_id=?",
+		"notifications":       "SELECT id,kind,object_id,created_at,read_at FROM notifications WHERE user_id=?",
+		"cases":               "SELECT id,kind,status,received_at,due_at,decision FROM cases WHERE user_id=?",
+		"alias_history":       "SELECT alias,created_at FROM alias_history WHERE user_id=?",
+		"subscriptions":       "SELECT kind,object_id,notifications,created_at FROM subscriptions WHERE user_id=?",
+		"tool_collaborations": "SELECT community_id,kind,purpose,state,expires_at,version,updated_at FROM tool_collaborators WHERE user_id=?",
+		"tool_eligibility":    "SELECT community_id,eligible,standard_url,version,updated_at FROM tool_eligibility WHERE user_id=?",
 	}
 	for name, query := range queries {
 		rows, err := snapshot.Query(query, i.ID)

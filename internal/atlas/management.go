@@ -39,7 +39,7 @@ func canManageCommunity(q managementQuery, user, community string) bool {
 		return true
 	}
 	var n int
-	return q.QueryRow(`SELECT count(*) FROM community_representatives r JOIN communities c ON c.id=r.community_id WHERE r.user_id=? AND r.community_id=? AND r.expires_at>? AND c.status IN ('active','uncategorized')`, user, community, time.Now().Unix()).Scan(&n) == nil && n == 1
+	return q.QueryRow(`SELECT count(*) FROM community_representatives r JOIN users u ON u.id=r.user_id JOIN communities c ON c.id=r.community_id WHERE r.user_id=? AND u.status='active' AND r.community_id=? AND r.expires_at>? AND c.status IN ('active','uncategorized')`, user, community, time.Now().Unix()).Scan(&n) == nil && n == 1
 }
 
 func (app *App) managementIdentity(w http.ResponseWriter, r *http.Request, write bool) (*Identity, string) {
@@ -65,6 +65,7 @@ func (app *App) managementIdentity(w http.ResponseWriter, r *http.Request, write
 
 func (app *App) managementRoutes(r *chi.Mux) {
 	app.communityToolRoutes(r)
+	app.collaboratorRoutes(r)
 	r.Get("/admin", app.managementPage)
 	r.Get("/admin/team", app.managementPage)
 	r.Get("/admin/representatives", app.managementPage)

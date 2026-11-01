@@ -53,6 +53,10 @@ func toolState(state string) string {
 }
 func toolBase(community string) string { return "/admin/communities/" + pathID(community) + "/tools" }
 
+func denyToolAccess(w http.ResponseWriter) {
+	respond(w, 403, map[string]string{"code": "TOOL_SCOPE_REQUIRED", "message": "该社群或工具不在当前有效授权范围内，请查看协作状态或联系代表。"})
+}
+
 func (app *App) communityToolRoutes(r *chi.Mux) {
 	r.Get("/admin/communities/{id}/tools", app.communityToolsPage)
 	r.Get("/admin/communities/{id}/tools/new", app.communityToolEditor)
@@ -63,13 +67,25 @@ func (app *App) communityToolRoutes(r *chi.Mux) {
 }
 
 func (app *App) toolIdentity(w http.ResponseWriter, r *http.Request, write bool) (*Identity, string) {
-	i, role := app.managementIdentity(w, r, write)
+	i := app.requireIdentity(w, r, write)
 	if i == nil {
 		return nil, ""
 	}
+	role, err := managementAccess(app.db, i.ID)
+	if err != nil {
+		fail(w, err)
+		return nil, ""
+	}
 	var status string
-	if !canManageCommunity(app.db, i.ID, chi.URLParam(r, "id")) || app.db.QueryRow("SELECT status FROM communities WHERE id=?", chi.URLParam(r, "id")).Scan(&status) != nil || (status != "active" && status != "uncategorized") {
-		fail(w, errForbidden)
+	if !canMaintainAnyTool(app.db, i.ID, chi.URLParam(r, "id")) || app.db.QueryRow("SELECT status FROM communities WHERE id=?", chi.URLParam(r, "id")).Scan(&status) != nil || (status != "active" && status != "uncategorized") {
+		denyToolAccess(w)
+		return nil, ""
+	}
+	if !canManageCommunity(app.db, i.ID, chi.URLParam(r, "id")) {
+		role = "organizer"
+	}
+	if write && !app.writeAllowed(i.ID) {
+		respond(w, 503, map[string]string{"code": "READ_ONLY"})
 		return nil, ""
 	}
 	return i, role
@@ -110,6 +126,10 @@ func (app *App) saveCommunityTool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t := communityTool{ID: chi.URLParam(r, "tool"), Community: chi.URLParam(r, "id"), Kind: r.FormValue("kind"), Title: strings.TrimSpace(r.FormValue("title")), Description: strings.TrimSpace(r.FormValue("description")), Content: strings.TrimSpace(r.FormValue("content")), Status: r.FormValue("status"), Summary: strings.TrimSpace(r.FormValue("summary")), Editor: i.ID}
+	if toolLabel(t.Kind) != "" && !canMaintainTool(app.db, i.ID, t.Community, t.Kind) {
+		denyToolAccess(w)
+		return
+	}
 	creating := t.ID == ""
 	if creating {
 		t.ID = r.FormValue("tool_id")
@@ -176,7 +196,7 @@ func (app *App) commitCommunityTool(r *http.Request, i *Identity, t *communityTo
 	defer tx.Rollback()
 	var n int
 	// Recheck authority and the concrete browser session inside the write transaction.
-	if !canManageCommunity(tx, i.ID, t.Community) || tx.QueryRow(`SELECT count(*) FROM sessions s JOIN users u ON u.id=s.user_id JOIN communities c ON c.id=? JOIN runtime_state rs ON rs.id=1 WHERE s.token_hash=? AND s.user_id=? AND s.revoked_at IS NULL AND s.expires_at>? AND s.reauthenticated_at>=? AND u.status='active' AND c.status IN ('active','uncategorized') AND rs.mode='normal'`, t.Community, digest(sessionCookie(r)), i.ID, time.Now().Unix(), time.Now().Add(-5*time.Minute).Unix()).Scan(&n) != nil || n != 1 {
+	if !canMaintainTool(tx, i.ID, t.Community, t.Kind) || tx.QueryRow(`SELECT count(*) FROM sessions s JOIN users u ON u.id=s.user_id JOIN communities c ON c.id=? JOIN runtime_state rs ON rs.id=1 WHERE s.token_hash=? AND s.user_id=? AND s.revoked_at IS NULL AND s.expires_at>? AND s.reauthenticated_at>=? AND u.status='active' AND c.status IN ('active','uncategorized') AND rs.mode='normal'`, t.Community, digest(sessionCookie(r)), i.ID, time.Now().Unix(), time.Now().Add(-5*time.Minute).Unix()).Scan(&n) != nil || n != 1 {
 		return errForbidden
 	}
 	old, err := loadCommunityTool(tx, t.Community, t.ID)

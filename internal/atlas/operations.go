@@ -515,6 +515,10 @@ func (app *App) maintenanceGate(next http.Handler) http.Handler {
 		}
 		if mode != "normal" {
 			allowed := r.URL.Path == "/api/v1/cases" || strings.HasPrefix(r.URL.Path, "/auth/") || strings.HasPrefix(r.URL.Path, "/api/v1/security/") || r.URL.Path == "/api/v1/me/deactivate" || (mode == "readonly" && r.URL.Path == "/api/v1/me/export")
+			parts := strings.Split(r.URL.Path, "/")
+			if len(parts) == 5 && parts[1] == "my" && parts[2] == "community-tools" && parts[3] != "" && (parts[4] == "leave" || parts[4] == "decline") {
+				allowed = true
+			}
 			if !allowed {
 				respond(w, 503, map[string]string{"code": "READ_ONLY"})
 				return
@@ -716,7 +720,7 @@ func RestoreBackup(config Config, archive, destination string) error {
 	}
 	defer app.Close()
 	// A snapshot must not resurrect a revoked grant. Re-authorize after recovery.
-	if _, err = app.db.Exec("DELETE FROM team_members; DELETE FROM community_representatives;"); err != nil {
+	if _, err = app.db.Exec("DELETE FROM team_members; DELETE FROM community_representatives; DELETE FROM tool_collaborators; DELETE FROM tool_eligibility;"); err != nil {
 		return err
 	}
 	records, err := app.readJournal()

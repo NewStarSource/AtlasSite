@@ -27,6 +27,16 @@ func managementNav(path, role string) string {
 }
 
 func managementHeading(r *http.Request, i *Identity, role string) string {
+	if role == "organizer" {
+		body := `<header class="admin-heading"><h1>社群协作</h1><a class="btn btn-secondary" href="/my/community-tools">我的协作</a></header>`
+		if r.URL.Query().Get("saved") == "1" {
+			body += `<p class="notice" role="status">已保存</p>`
+		}
+		if i.ReauthenticatedAt < time.Now().Add(-5*time.Minute).Unix() {
+			body += `<p class="notice">修改前请<a href="/security">验证身份</a>，验证后返回此页。</p>`
+		}
+		return body
+	}
 	label := map[string]string{"admin": "团队管理员", "member": "团队成员", "representative": "社群代表"}[role]
 	body := `<header class="admin-heading"><div><h1>管理面板</h1><p class="muted">` + label + `</p></div><a class="btn btn-secondary" href="/">返回首页</a></header>` + managementNav(r.URL.Path, role)
 	if r.URL.Query().Get("saved") == "1" {
@@ -317,10 +327,10 @@ func (app *App) managementLog(i *Identity, role string, r *http.Request) (string
 	if err != nil || page < 0 || page > 10000 {
 		return "", errInput
 	}
-	query := `SELECT e.actor_id,COALESCE(u.alias,'本地操作员'),e.action,e.object_id,COALESCE(c.name,t.alias,e.object_id),e.created_at,e.before_json,e.after_json FROM management_events e LEFT JOIN users u ON u.id=e.actor_id LEFT JOIN communities c ON c.id=e.object_id LEFT JOIN users t ON t.id=e.object_id`
+	query := `SELECT e.actor_id,COALESCE(u.alias,CASE WHEN e.actor_id IN ('identity-sync','community-state') THEN '系统' ELSE '本地操作员' END),e.action,e.object_id,COALESCE(c.name,t.alias,e.object_id),e.created_at,e.before_json,e.after_json FROM management_events e LEFT JOIN users u ON u.id=e.actor_id LEFT JOIN communities c ON c.id=e.object_id LEFT JOIN users t ON t.id=e.object_id`
 	args := []any{}
 	if role == "representative" {
-		query += ` WHERE e.action IN ('community-save','collection-save') AND EXISTS(SELECT 1 FROM community_representatives cr JOIN communities c0 ON c0.id=cr.community_id WHERE cr.community_id=e.object_id AND cr.user_id=? AND cr.expires_at>? AND c0.status IN ('active','uncategorized'))`
+		query += ` WHERE (e.action IN ('community-save','collection-save') OR e.action LIKE 'tool-%') AND EXISTS(SELECT 1 FROM community_representatives cr JOIN communities c0 ON c0.id=cr.community_id WHERE cr.community_id=e.object_id AND cr.user_id=? AND cr.expires_at>? AND c0.status IN ('active','uncategorized'))`
 		args = append(args, i.ID, time.Now().Unix())
 	}
 	query += " ORDER BY e.created_at DESC,e.id DESC LIMIT 51 OFFSET ?"
@@ -331,6 +341,9 @@ func (app *App) managementLog(i *Identity, role string, r *http.Request) (string
 	}
 	defer rows.Close()
 	labels := map[string]string{"bootstrap-admin": "初始化管理员", "team-save": "更新团队授权", "team-remove": "撤销团队授权", "representative-save": "更新代表授权", "representative-remove": "撤销代表授权", "community-save": "更新社群资料", "collection-save": "维护社群工具"}
+	for action, label := range map[string]string{"tool-eligibility": "核验工具协作资格", "tool-invite": "邀请整理者", "tool-revoke": "撤销协作", "tool-accept": "接受协作邀请", "tool-decline": "谢绝协作邀请", "tool-leave": "退出协作", "tool-auto-revoke": "状态变化自动撤销协作"} {
+		labels[action] = label
+	}
 	body := `<div class="admin-list">`
 	n := 0
 	for rows.Next() {
@@ -375,6 +388,42 @@ func managementChange(action, raw string) string {
 		}
 		return `<p>版本 ` + strconv.Itoa(change.Version) + ` · ` + toolState(change.Status) + `</p><p class="muted">` + esc(change.ID) + `</p>`
 	}
+	if strings.HasPrefix(action, "tool-") {
+		var change struct {
+			ID, User, Kind, Reason string
+			Version                int
+			Eligible               *int
+			Expires                int64  `json:"expires_at"`
+			Standard               string `json:"standard_url"`
+		}
+		if json.Unmarshal([]byte(raw), &change) != nil {
+			return ""
+		}
+		body := `<p>版本 ` + strconv.Itoa(change.Version) + `</p>`
+		if change.User != "" {
+			body += `<p class="muted">用户 ` + esc(change.User) + `</p>`
+		}
+		if change.Kind != "" {
+			body += `<p>` + toolLabel(change.Kind) + ` · ` + grantDate(change.Expires) + `</p>`
+		}
+		if change.Eligible != nil {
+			state := "已撤销核验"
+			if *change.Eligible == 1 {
+				state = "既有资格已核验"
+			}
+			body += `<p>` + state + ` · ` + esc(change.Reason) + `</p>`
+			if safeSource(change.Standard) {
+				body += `<p><a rel="noopener noreferrer" href="` + esc(change.Standard) + `">公开标准入口</a></p>`
+			}
+		}
+		if change.Eligible == nil && change.Reason != "" {
+			body += `<p>` + esc(change.Reason) + `</p>`
+		}
+		if change.ID != "" {
+			body += `<p class="muted">` + esc(change.ID) + `</p>`
+		}
+		return body
+	}
 	if action == "community-save" {
 		var c managedCommunity
 		if json.Unmarshal([]byte(raw), &c) != nil {
@@ -413,7 +462,7 @@ func (app *App) manageCommunityPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	body := managementHeading(r, i, role) + `<section class="admin-editor"><div class="admin-row-heading"><h2>社群资料</h2><a href="/c/` + pathID(slug) + `">查看社群 ↗</a></div>` + formStart(r, "/admin/communities/"+pathID(id)) + field("version", strconv.Itoa(c.Version)) + `<label>名称<input name="name" value="` + esc(c.Name) + `" maxlength="100" required></label><label>简介<textarea name="description" maxlength="4000" rows="6" required>` + esc(c.Description) + `</textarea></label><label>联系说明<textarea name="contact" maxlength="1000" rows="3">` + esc(c.Contact) + `</textarea></label><div class="action-row"><button class="btn btn-primary">保存</button><a class="btn btn-secondary" href="/admin">返回列表</a></div></form></section>`
-	body += `<section class="admin-editor"><h2>社群工具</h2><a class="btn btn-secondary" href="` + toolBase(id) + `">维护公告、指引与合集</a></section>`
+	body += `<section class="admin-editor"><h2>社群工具</h2><div class="action-row"><a class="btn btn-secondary" href="` + toolBase(id) + `">维护公告、指引与合集</a><a class="btn btn-secondary" href="` + collaborationBase(id) + `">协作授权</a></div></section>`
 	app.renderPage(w, r, "管理 · "+c.Name, "admin", body)
 }
 

@@ -105,6 +105,7 @@ func (app *App) myPage(w http.ResponseWriter, r *http.Request) {
 		{"/my/drafts", "草稿", "SELECT count(*) FROM drafts WHERE author_id=? AND updated_at>unixepoch()-2592000"},
 		{"/my/bookmarks", "收藏", "SELECT count(*) FROM post_bookmarks WHERE identity_id=?"},
 		{"/my/subscriptions", "订阅", "SELECT count(*) FROM subscriptions WHERE user_id=?"},
+		{"/my/community-tools", "社群协作", "SELECT count(*)" + liveToolGrantSQL + " AND g.user_id=? AND g.state IN ('pending','accepted')"},
 		{"/my/cases", "举报与申诉", "SELECT count(*) FROM cases WHERE user_id=?"}} {
 		var count int
 		if err := app.db.QueryRow(link[2], i.ID).Scan(&count); err != nil {
@@ -183,6 +184,9 @@ func (app *App) browserErrors(next http.Handler) http.Handler {
 		}
 		if data.Code == "REAUTH_REQUIRED" {
 			body += `<a class="btn" href="/security">验证身份</a>`
+		}
+		if data.Code == "TOOL_SCOPE_REQUIRED" {
+			body += `<a class="btn" href="/my/community-tools">查看协作状态</a>`
 		}
 		body += `</div></section>`
 

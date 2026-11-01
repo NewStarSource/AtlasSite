@@ -39,6 +39,47 @@ def authorize(client, account, atlas, username, password, start=None):
     expect(client.request(callback), 303, "complete login")
 
 
+def check_collaborators(client, staff, account, atlas, account_bin, account_dir, tools, guide_path):
+    helper, username, password = Browser(), "toolhelper", "synthetic helper password 123"
+    generated = subprocess.run([str(account_bin), "generate-invite"], cwd=account_dir, check=True, capture_output=True, text=True, encoding="utf-8")
+    invite = (generated.stdout or generated.stderr).strip().split("邀请码：")[-1].strip()
+    expect(helper.request(account + "/api/v1/auth/register", {"username": username, "password": password, "invite_code": invite}, True), 201, "register collaborator")
+    authorize(helper, account, atlas, username, password)
+    helper_id = json.loads(helper.request(atlas + "/api/v1/session")[2])["user"]["id"]
+    base = "/admin/communities/pixel-game-dev/collaborators"
+    expect(client.request(atlas + base), 200, "collaboration management page")
+    qualification = {"user_id": helper_id, "version": "0", "eligible": "1", "confirm": "verified", "reason": "合成既有成员资格核验", "standard_url": atlas + "/c/pixel-game-dev/guide"}
+    expect(form_post(client, atlas, base + "/eligibility", qualification), 303, "team registers existing qualification")
+    invitation = {"user_id": helper_id, "kind": "guide", "version": "0", "authority": "协助维护新人指引", "expires": (date.today() + timedelta(days=30)).isoformat()}
+    expect(form_post(staff, atlas, base + "/invite", invitation), 303, "representative invites collaborator")
+    expect(helper.request(atlas + tools), 403, "invitation requires active consent")
+    inbox = expect(helper.request(atlas + "/my/community-tools"), 200, "personal collaboration inbox")[2]
+    grant_id = re.search(r'/my/community-tools/([^/"?]+)/accept', inbox).group(1)
+    assert "社群协作邀请已更新" in expect(helper.request(atlas + "/notifications"), 200, "collaboration notification")[2]
+    authorize(helper, account, atlas, username, password, form_post(helper, atlas, "/auth/reauthenticate", {}))
+    expect(form_post(helper, atlas, "/my/community-tools/" + grant_id + "/accept", {"version": "1", "confirm": "accept"}), 303, "accept collaboration")
+    tool_html = expect(helper.request(atlas + tools), 200, "scoped tools list")[2]
+    assert "新建新人指引" in tool_html and "新建公告" not in tool_html and "新建讨论合集" not in tool_html
+    for path in ("/admin/team", base, "/admin/communities/pixel-game-dev", tools + "/new?kind=announcement"):
+        expect(helper.request(atlas + path), 403, "collaborator cannot expand authority")
+    edit = {"kind": "guide", "version": "1", "title": "合成新人指引", "content": "整理者维护的指引", "description": "", "status": "published", "order": "0", "summary": "整理者更新"}
+    expect(form_post(helper, atlas, guide_path, edit), 303, "collaborator edits authorized guide")
+    assert "整理者维护的指引" in expect(helper.request(atlas + "/c/pixel-game-dev/guide"), 200, "public collaborator update")[2]
+    expect(form_post(staff, atlas, base + "/" + grant_id + "/revoke", {"version": "2"}), 303, "revoke collaborator")
+    expect(helper.request(atlas + tools), 403, "revoked collaborator denied")
+    invitation["version"] = "3"
+    expect(form_post(staff, atlas, base + "/invite", invitation), 303, "reinvite collaborator")
+    expect(helper.request(atlas + tools), 403, "reinvitation requires fresh consent")
+    expect(form_post(helper, atlas, "/my/community-tools/" + grant_id + "/accept", {"version": "4", "confirm": "accept"}), 303, "accept renewed collaboration")
+    expect(form_post(helper, atlas, "/my/community-tools/" + grant_id + "/leave", {"version": "5"}), 303, "voluntary collaboration withdrawal")
+    expect(helper.request(atlas + tools), 403, "withdrawn collaborator denied")
+    invitation["version"] = "6"
+    expect(form_post(staff, atlas, base + "/invite", invitation), 303, "new invitation after withdrawal")
+    expect(form_post(helper, atlas, "/my/community-tools/" + grant_id + "/accept", {"version": "7", "confirm": "accept"}), 303, "new active collaboration")
+    print("PASS tool collaborators: real qualification/invitation/consent forms, scoped edits, revoke, reinvite and voluntary withdrawal")
+    return helper
+
+
 def check_management(client, account, atlas, account_bin, atlas_bin, account_dir, atlas_dir, owner):
     staff, username, password = Browser(), "managementrep", "synthetic representative password 123"
     generated = subprocess.run([str(account_bin), "generate-invite"], cwd=account_dir, check=True, capture_output=True, text=True, encoding="utf-8")
@@ -72,8 +113,8 @@ def check_management(client, account, atlas, account_bin, atlas_bin, account_dir
     expect(form_post(staff, atlas, location, announcement), 409, "stale tool edit rejected")
     assert "版本 2" in expect(staff.request(atlas + location + "/history"), 200, "tool history")[2]
     form = staff.form(atlas + tools + "/new?kind=guide")
-    guide = dict(form.inputs); guide.update(title="合成新人指引", content="从这里开始", status="published", order="0", summary="创建新人指引")
-    expect(form_post(staff, atlas, tools, guide), 303, "publish guide")
+    guide = dict(form.inputs); guide.update(title="合成新人指引", content="从这里开始。合成成员标准要求真实共同活动或两名成员确认，首批由团队核验。", status="published", order="0", summary="创建新人指引")
+    guide_path = expect(form_post(staff, atlas, tools, guide), 303, "publish guide")[1]["Location"].split("?")[0]
     assert "从这里开始" in expect(staff.request(atlas + "/c/pixel-game-dev/guide"), 200, "public guide")[2]
     post = {"title": "合成合集原帖", "content": "原帖正文", "license": "reserved", "community": "pixel-game-dev", "request_id": __import__("uuid").uuid4().hex}
     post_path = expect(form_post(staff, atlas, "/api/v1/posts", post), 303, "publish collection original")[1]["Location"]
@@ -86,10 +127,12 @@ def check_management(client, account, atlas, account_bin, atlas_bin, account_dir
     announcement.update(version="2", status="archived", summary="撤下合成公告")
     expect(form_post(staff, atlas, location, announcement), 303, "withdraw announcement")
     assert "合成维护公告" not in expect(staff.request(atlas + "/c/pixel-game-dev/announcements"), 200, "withdrawn announcement private")[2]
+    helper = check_collaborators(client, staff, account, atlas, account_bin, account_dir, tools, guide_path)
     expect(form_post(client, atlas, "/admin/representatives/pixel-game-dev/remove", {"version": "1"}), 303, "revoke representative")
     expect(staff.request(atlas + "/admin"), 403, "revoked representative denied")
     announcement.update(version="3", status="published")
     expect(form_post(staff, atlas, location, announcement), 403, "revoked tool maintainer denied")
+    expect(helper.request(atlas + tools), 403, "representative revocation invalidates delegated collaboration")
     grant.update(role="member", version="0")
     expect(form_post(client, atlas, "/admin/team", grant), 303, "add team member")
     expect(staff.request(atlas + "/admin/team"), 200, "team member can view team")

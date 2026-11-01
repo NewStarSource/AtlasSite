@@ -35,6 +35,13 @@ func (app *App) notificationRoutes(router *chi.Mux) {
 		shown := 0
 		for _, n := range pageItems(items) {
 			label, target := "请求状态更新", "/my/cases/"+pathID(n.object)
+			if n.kind == "tool-invitation" {
+				var exists int
+				if app.db.QueryRow("SELECT count(*) FROM tool_collaborators WHERE id=? AND user_id=?", n.object, i.ID).Scan(&exists) != nil || exists != 1 {
+					continue
+				}
+				label, target = "社群协作邀请已更新", "/my/community-tools"
+			}
 			if n.kind == "post" {
 				if !app.postVisible(n.object, i.ID) {
 					continue
@@ -58,7 +65,7 @@ func (app *App) notificationRoutes(router *chi.Mux) {
 			if !n.read.Valid {
 				class += " unread"
 			}
-			kindLabel := map[string]string{"post": "社群", "reply": "回复"}[n.kind]
+			kindLabel := map[string]string{"post": "社群", "reply": "回复", "tool-invitation": "协作"}[n.kind]
 			if kindLabel == "" {
 				kindLabel = "请求"
 			}
