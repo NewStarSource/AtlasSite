@@ -16,7 +16,9 @@ def main():
         dirty=output(['git','status','--porcelain'],root)
         meta['source'][name]={'commit':output(['git','rev-parse','HEAD'],root),'dirty':bool(dirty)}
         meta['go'][name]=output(['go','version'],root)
-        cmd=['go','test','./...','-count=1','-timeout','120s'];
+        # Race instrumentation makes the real bcrypt checks much slower.
+        # Keep the production password cost and allow the complete suite to finish.
+        cmd=['go','test','./...','-count=1','-timeout','900s' if args.race else '120s'];
         if args.race:cmd.insert(2,'-race')
         run(cmd,root);run(['go','vet','./...'],root);run(['go','run','golang.org/x/vuln/cmd/govulncheck@v1.8.0','./...'],root)
         run(['go','build','-trimpath','-o',str(native/('star'+name+suffix)),'./cmd/star'+name],root)

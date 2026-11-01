@@ -118,6 +118,8 @@ Wiki 共同编辑贡献在注销后按许可保留并标明已注销，普通讨
 
 ### 六个公开来源示例与输入保留
 
+后续验证更新：完整内部候选构建通过，补充了实际 Chromium、安全页、无 JavaScript 改密及 IPv6 HTTPS 联调，记录见[候选验证](validation/RELEASE_VALIDATION_2026-11-01.md)。账户 Linux race 完整通过；星图 race 因当前 Ubuntu IPv4 回环故障未通过，不能据此部署。已按负责人提供的连接做[线上只读核对](validation/PRODUCTION_AUDIT_2026-11-01.md)，未执行迁移或重启。
+
 已核对 Godot、Krita、Python 官方资料并整理三个社群与三个公开软件示例，保留原创简述、公开来源与脚注。社群状态使用未知，首次确认日期不冒充创立时间。样例和真人验收步骤见[示例目录](../../examples/wiki/README.md)。
 
 新增 `scripts/test_wiki_examples.py`，只创建临时双服务、随机端口与三个合成账号。六例完成发现页编辑冲突、私有正式提交与发布、附理由退回后原稿重提、旧建议冲突、新建议采纳及错误脚注输入保留，报告见[执行证据](validation/WIKI_EXAMPLES_2026-11-01.md)。未将临时内容写入现有实例或服务器。

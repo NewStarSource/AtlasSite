@@ -1,0 +1,23 @@
+{
+  "target": "linux/amd64",
+  "go": {
+    "account": "go version go1.27.3 windows/amd64",
+    "atlas": "go version go1.27.3 windows/amd64"
+  },
+  "source": {
+    "account": {
+      "commit": "fe343465da4f7d6597ac4c2728f0f63e22903bec",
+      "dirty": false
+    },
+    "atlas": {
+      "commit": "79cf2b3daecc9ac901045be037e79631b01e254d",
+      "dirty": false
+    }
+  },
+  "license_inventory": "licenses/inventory.json",
+  "license_inventory_sha256": "2103a7cca61918728617d4c8d748bed4820e6ed977c4cad09e050521e92d06c5",
+  "sha256": {
+    "bin/staraccount": "78a6af630e1644f5ab1e1da742452bcec63c4873688ea0712d4fc45d51587cce",
+    "bin/staratlas": "2008f9c3de28017c6418e00ab89e4dd342d3a67f13c72e3522ac9cbf42176349"
+  }
+}

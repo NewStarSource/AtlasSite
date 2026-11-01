@@ -56,6 +56,11 @@ class Threads(socketserver.ThreadingTCPServer):
     allow_reuse_address=True
     daemon_threads=True
 
+def tls_browser(proxy, certificate):
+    client=Browser()
+    client.opener=urllib.request.build_opener(urllib.request.ProxyHandler({'https':proxy}),urllib.request.HTTPSHandler(context=ssl.create_default_context(cafile=str(certificate))),urllib.request.HTTPCookieProcessor(client.cookies),NoRedirect())
+    return client
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--account-bin',type=Path,required=True);parser.add_argument('--atlas-bin',type=Path,required=True);parser.add_argument('--ipv6',action='store_true');args=parser.parse_args()
     if os.name=='nt':parser.error('Run with Linux binaries on Linux/WSL; SSL_CERT_FILE is process-local there')
@@ -89,7 +94,7 @@ def main():
             for binary,folder in ((account_bin,ad),(atlas_bin,td)):
                 log=(root/(binary.name+'.log')).open('w+');logs.append(log)
                 processes.append(subprocess.Popen([str(binary)],cwd=folder,env=env,stdout=log,stderr=log))
-            client=Browser();client.opener=urllib.request.build_opener(urllib.request.ProxyHandler({'https':proxy}),urllib.request.HTTPSHandler(context=ssl.create_default_context(cafile=str(certificate))),urllib.request.HTTPCookieProcessor(client.cookies),NoRedirect())
+            client=tls_browser(proxy,certificate)
             for origin in (account,atlas):
                 deadline=time.monotonic()+20
                 while True:
@@ -101,6 +106,7 @@ def main():
                         for log in logs:log.flush();log.seek(0);print(log.read()[-1000:])
                         raise RuntimeError('production startup failed: '+last)
                     time.sleep(.1)
+            expect(client.request(account+'/api/v1/auth/register',dict(username='uninviteduser',password='Synthetic production password 123'),True),400,'registration still requires invite')
             invite_result=subprocess.run([str(account_bin),'generate-invite'],cwd=ad,env=env,check=True,capture_output=True,text=True)
             invite=(invite_result.stdout or invite_result.stderr).strip().split('邀请码：')[-1].strip()
             result=expect(client.request(account+'/api/v1/auth/register',dict(username='productionuser',password='Synthetic production password 123',invite_code=invite),True),201,'production registration')
@@ -111,11 +117,16 @@ def main():
             with client.opener.open(request,timeout=10) as response:assert response.status==200
             authorize(client,account,atlas,'productionuser','Synthetic production password 123')
             assert json.loads(client.request(atlas+'/api/v1/session')[2])['authenticated']
-            expect(form_post(client,atlas,'/api/v1/posts',dict(title='TLS production post',content='Synthetic local-only data',license='reserved',request_id=__import__('uuid').uuid4().hex)),303,'TLS production publish')
+            published=expect(form_post(client,atlas,'/api/v1/posts',dict(title='TLS production post',content='Synthetic local-only data',license='reserved',request_id=__import__('uuid').uuid4().hex)),303,'TLS production publish')
+            anonymous=tls_browser(proxy,certificate)
+            assert 'TLS production post' in expect(anonymous.request(atlas+published[1]['Location']),200,'anonymous public reading')[2]
+            expect(anonymous.request(atlas+'/admin'),401,'anonymous management denied')
+            private=expect(anonymous.request(account+'/security'),303,'anonymous security redirects to login')
+            assert private[1]['Location']=='/login' and code not in private[2]
             expect(form_post(client,account,'/api/v1/auth/recover-password',dict(username='productionuser',recovery_code=code,password='Replacement production password 456')),200,'TLS code recovery')
             assert not json.loads(client.request(atlas+'/api/v1/session')[2])['authenticated'],'atlas session survived recovery'
             expect(form_post(client,account,'/api/v1/auth/recover-password',dict(username='productionuser',recovery_code=code,password='Another replacement password 789')),400,'recovery replay')
-            print('PASS Linux production HTTPS with verified isolated CA, cross-site navigation, Secure cookies, OIDC/PKCE, publish, password recovery and cross-service revocation')
+            print('PASS Linux production HTTPS with verified isolated CA, cross-site navigation, Secure cookies, OIDC/PKCE, public reading/invite registration/private-page isolation, publish, password recovery and cross-service revocation')
         finally:
             for process in processes:
                 if process.poll() is None:process.terminate();process.wait(timeout=15)
