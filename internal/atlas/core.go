@@ -145,7 +145,7 @@ func (app *App) homePage(w http.ResponseWriter, r *http.Request) {
 	body := `<h1 class="sr-only">最新发布</h1>`
 	if i != nil {
 		viewer = i.ID
-		body += strings.Replace(formStart(r, "/new"), `<form `, `<form class="composer" `, 1) + `<label for="composer-input" class="sr-only">发布内容</label><textarea id="composer-input" class="composer-textarea" name="content" maxlength="50000" placeholder="分享你的想法、创作或观察…" aria-label="发布内容"></textarea><div class="composer-toolbar"><div class="composer-meta"><a class="meta-tag" href="/new#post-community">＋ 关联社群</a><a class="meta-tag" href="/new#post-image">＋ 上传图片</a><a class="meta-tag" href="/my/drafts">草稿</a></div><button class="btn" type="submit">继续编辑</button></div></form>`
+		body += strings.Replace(formStart(r, "/new"), `<form `, `<form class="composer" `, 1) + `<label for="composer-input" class="sr-only">发布内容</label><textarea id="composer-input" class="composer-textarea" name="content" maxlength="50000" placeholder="分享你的想法、创作或观察…" aria-label="发布内容"></textarea><div class="composer-toolbar"><button class="btn" type="submit">继续编辑</button></div></form>`
 	} else {
 		body += `<div class="composer"><p>分享你的想法、创作或观察…</p><div class="composer-toolbar"><a class="btn" href="/login">登录后发布</a></div></div>`
 	}
@@ -206,7 +206,7 @@ func (app *App) postCards(posts []Post, viewer string, r *http.Request) string {
 		} else {
 			b.WriteString(`<a class="action-btn" aria-label="登录后收藏" title="登录后收藏" href="/login">` + uiIcon("bookmark") + `<span>` + strconv.Itoa(p.BookmarkCount) + `</span></a>`)
 		}
-		b.WriteString(`<a class="action-btn" aria-label="打开内容" href="/p/` + pathID(p.ID) + `">` + uiIcon("more") + `</a></div></article>`)
+		b.WriteString(`</div></article>`)
 	}
 	if b.Len() == 0 {
 		return emptyState("这里还没有可显示的内容", "发布一条动态，或者先去发现感兴趣的社群。", "/discover", "发现社群")
