@@ -145,9 +145,9 @@ func (app *App) homePage(w http.ResponseWriter, r *http.Request) {
 	body := `<h1 class="sr-only">最新发布</h1>`
 	if i != nil {
 		viewer = i.ID
-		body += strings.Replace(formStart(r, "/new"), `<form `, `<form class="composer" `, 1) + `<label for="composer-input" class="sr-only">发布内容</label><textarea id="composer-input" class="composer-textarea" name="content" maxlength="50000" placeholder="分享你的想法、创作或观察…" aria-label="发布内容"></textarea><div class="composer-toolbar"><button class="btn" type="submit">继续编辑</button></div></form>`
+		body += strings.Replace(formStart(r, "/new"), `<form `, `<form class="composer" `, 1) + `<textarea id="composer-input" class="composer-textarea" name="content" maxlength="50000" placeholder="分享你的想法、创作或观察…" aria-label="发布内容"></textarea><div class="composer-toolbar"><button class="btn btn-primary" type="submit">继续编辑</button></div></form>`
 	} else {
-		body += `<div class="composer"><p>分享你的想法、创作或观察…</p><div class="composer-toolbar"><a class="btn" href="/login">登录后发布</a></div></div>`
+		body += `<div class="composer composer-guest"><p>分享你的想法、创作或观察…</p><a class="btn btn-primary" href="/login">登录后发布</a></div>`
 	}
 	body += `<div class="feed" role="feed">` + app.postCards(pageItems(posts), viewer, r) + `</div>` + pagination(r, len(posts) > pageSize)
 	app.renderPage(w, r, "最新发布", "home", body)

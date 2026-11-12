@@ -266,9 +266,9 @@ a.post:hover, a.link-card:hover {
 /* ============================================================ feed & posts */
 .feed, .feed-list, .notification-list, .results-section, .content-list { display: flex; flex-direction: column; gap: 0; }
 .feed .post, .feed-list .post, .page-search .post {
-  border-radius: 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: var(--s-7) 0;
+  border-radius: 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: var(--s-5) 0;
 }
-.feed .post:first-child, .feed-list .post:first-child { padding-top: 0; }
+.feed .post:first-child, .feed-list .post:first-child { padding-top: var(--s-2); }
 .feed .post:hover, .feed-list .post:hover { transform: none; box-shadow: none; border-color: var(--line); }
 
 .post-header { display: flex; align-items: center; gap: var(--s-2); margin-bottom: var(--s-3); font-size: var(--t-small); flex-wrap: wrap; }
@@ -278,7 +278,7 @@ a.post:hover, a.link-card:hover {
 .post-time { margin-left: auto; white-space: nowrap; font-size: 12px; }
 .post-community { color: var(--muted); font-weight: 500; }
 .post-community:hover { color: var(--action); }
-.post-title { margin-bottom: var(--s-2); font-size: var(--t-card); line-height: 1.4; letter-spacing: -0.015em; overflow-wrap: anywhere; }
+.post-title { margin-bottom: var(--s-2); font-size: var(--t-card); font-weight: 600; line-height: 1.4; letter-spacing: -0.015em; overflow-wrap: anywhere; }
 .post-title a { color: var(--ink); background-image: linear-gradient(currentColor, currentColor); background-repeat: no-repeat; background-size: 0% 1px; background-position: 0 100%; transition: background-size var(--m-out) var(--ease); }
 .post-title a:hover { background-size: 100% 1px; transition-duration: var(--m-in); }
 .post-content { margin-bottom: var(--s-3); color: var(--muted); font-size: var(--t-small); line-height: 1.7;
@@ -306,8 +306,8 @@ a.post:hover, a.link-card:hover {
 .action-btn svg { width: 16px; height: 16px; }
 .action-btn:hover { color: var(--ink); background: color-mix(in oklab, var(--ink) 6%, transparent); transform: none; }
 .state-form { position: relative; display: inline-flex; align-items: center; gap: var(--s-2); margin: 0; }
-.state-form button[aria-pressed="true"], .state-form .action-btn[aria-pressed="true"] { color: var(--action); }
-.state-form .action-btn[aria-pressed="true"] svg { fill: currentColor; }
+.state-form button[aria-pressed="true"], .state-form .action-btn[aria-pressed="true"] { color: var(--ink); }
+.state-form .action-btn[aria-pressed="true"] svg { fill: currentColor; opacity: 0.7; }
 .state-form button:disabled { opacity: .5; cursor: wait; }
 .state-feedback { font-size: 12px; color: var(--muted); max-width: 240px; overflow-wrap: anywhere; flex-basis: 100%; }
 .state-feedback:empty { display: none; }
@@ -317,21 +317,22 @@ a.post:hover, a.link-card:hover {
 .state-form .icon-btn[aria-pressed="true"] svg { fill: currentColor; }
 
 /* ============================================================ composer */
-.composer { margin-bottom: var(--s-6); padding: var(--s-4); background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); transition: border-color var(--m-out) var(--ease), box-shadow var(--m-out) var(--ease); }
-.composer:hover { transform: none; box-shadow: none; border-color: var(--line-strong); }
-.composer:focus-within { border-color: color-mix(in oklab, var(--action) 40%, var(--line)); box-shadow: 0 0 0 3px color-mix(in oklab, var(--action) 14%, transparent); }
-.composer p { color: var(--muted); padding: var(--s-2) var(--s-3); }
+.composer { margin-bottom: var(--s-5); padding: var(--s-4); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg); transition: border-color var(--m-out) var(--ease), box-shadow var(--m-out) var(--ease); }
+.composer:hover { border-color: var(--line-strong); }
+.composer:focus-within { border-color: color-mix(in oklab, var(--action) 50%, var(--line)); box-shadow: 0 0 0 3px color-mix(in oklab, var(--action) 12%, transparent); }
+.composer-guest { display: flex; align-items: center; justify-content: space-between; gap: var(--s-4); padding: var(--s-4) var(--s-5); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg); margin-bottom: var(--s-5); }
+.composer-guest p { color: var(--muted); font-size: var(--t-body); }
 .composer-textarea {
-  width: 100%; min-height: 88px; padding: var(--s-3);
-  background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-sm);
-  font: 400 var(--t-body)/1.6 var(--font-text); color: var(--ink); resize: vertical;
-  transition: border-color var(--m-out) var(--ease), box-shadow var(--m-out) var(--ease);
+  width: 100%; min-height: 80px; padding: var(--s-2) var(--s-1);
+  background: transparent; border: 0; border-bottom: 1px solid var(--line);
+  font: 400 var(--t-body)/1.6 var(--font-text); color: var(--ink); resize: none;
+  transition: border-color var(--m-out) var(--ease);
 }
-.composer-textarea:focus { outline: none; border-color: var(--action); box-shadow: var(--focus-ring); }
-.composer-toolbar { display: flex; justify-content: flex-end; align-items: center; margin-top: var(--s-3); gap: var(--s-3); flex-wrap: wrap; }
+.composer-textarea:focus { outline: none; border-color: var(--line-strong); box-shadow: none; }
+.composer-toolbar { display: flex; justify-content: flex-end; padding-top: var(--s-3); gap: var(--s-3); }
 .composer-meta { display: flex; gap: var(--s-2); flex-wrap: wrap; }
-.meta-tag { padding: 3px var(--s-3); background: color-mix(in oklab, var(--ink) 4%, transparent); border: 1px solid var(--line); border-radius: var(--radius-full); font-size: var(--t-label); color: var(--muted); cursor: pointer; }
-.meta-tag:hover { border-color: var(--line-strong); color: var(--ink); transform: none; box-shadow: none; }
+.meta-tag { padding: 3px var(--s-3); background: color-mix(in oklab, var(--ink) 4%, transparent); border: 1px solid var(--line); border-radius: var(--radius-full); font-size: var(--t-label); color: var(--muted); cursor: pointer; transition: background-color var(--m-out) var(--ease), color var(--m-out) var(--ease); }
+.meta-tag:hover { border-color: var(--line-strong); color: var(--ink); }
 .composer-toolbar > .btn { flex-shrink: 0; white-space: nowrap; }
 
 /* ============================================================ forms & inputs */
