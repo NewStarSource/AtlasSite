@@ -139,7 +139,11 @@ func (app *App) postPage(w http.ResponseWriter, r *http.Request) {
 		breadcrumb += `<a href="/c/` + pathID(p.CommunitySlug) + `">` + esc(p.CommunityName) + `</a><span>/</span>`
 	}
 	breadcrumb += `<span>讨论详情</span></nav>`
-	content := breadcrumb + `<article class="post-article"><div class="post-meta">` + publicAuthor(*p) + `<span>·</span><time>` + formatTime(p.CreatedAt) + `</time></div><h1 class="post-title">` + esc(p.Title) + `</h1><div class="post-content prose">` + renderMarkdown(p.Content) + `</div><div class="post-license">内容许可 ` + esc(licenseLabel(license)) + ` · 最后修改 ` + formatTime(p.UpdatedAt) + `</div></article>`
+	heading := `<h1 class="sr-only">` + esc(p.DisplayTitle()) + `</h1>`
+	if strings.TrimSpace(p.Title) != "" {
+		heading = `<h1 class="post-title">` + esc(p.Title) + `</h1>`
+	}
+	content := breadcrumb + `<article class="post-article"><div class="post-meta">` + publicAuthor(*p) + `<span>·</span><time>` + formatTime(p.CreatedAt) + `</time></div>` + heading + `<div class="post-content prose">` + renderMarkdown(p.Content) + `</div><div class="post-license">内容许可 ` + esc(licenseLabel(license)) + ` · 最后修改 ` + formatTime(p.UpdatedAt) + `</div></article>`
 	more := `<nav class="overlay-links" aria-label="动态操作"><a href="/help/report?object_id=` + pathID(id) + `">举报</a>`
 	if i != nil {
 		marked, _ := app.isBookmarked(i.ID, id)
@@ -214,7 +218,7 @@ func (app *App) postPage(w http.ResponseWriter, r *http.Request) {
 	} else {
 		content += `<section class="panel" id="reply-composer"><p>登录后即可回复、收藏和发表回复。</p><a class="btn btn-primary" href="/login">登录发表回复</a></section>`
 	}
-	app.renderPageWithMore(w, r, p.Title, "post", content, more)
+	app.renderPageWithMore(w, r, p.DisplayTitle(), "post", content, more)
 }
 func enhancedForm(r *http.Request, action string) string {
 	return strings.Replace(formStart(r, action), `<form `, `<form data-content-form `, 1)
@@ -225,7 +229,7 @@ func (app *App) editorContent(r *http.Request, action, id string, version int, d
 		title, button = "编辑内容", "保存修改"
 	}
 	body := pageHeading("", title, "", `<a href="/my/drafts">草稿</a>`) + enhancedForm(r, action) + field("request_id", randomID()) + field("draft_id", id) + versionField(version)
-	body += `<div class="editor-modes" aria-label="编辑模式"><button class="mode-btn active" type="button" data-editor-mode="edit" aria-pressed="true">编辑</button><button class="mode-btn" type="button" data-editor-mode="preview" data-preview aria-pressed="false">预览</button></div><div class="editor-container side-by-side"><div class="editor-panel" data-edit-panel><div class="form-group"><label for="post-title" class="form-label">标题</label><input id="post-title" class="form-input" name="title" value="` + esc(d.Title) + `" maxlength="200" placeholder="给你的内容起个标题" required></div><div class="form-group"><label for="post-content" class="form-label">正文</label><div class="editor-tools"><button type="button" data-insert="bold" aria-label="插入粗体">粗体</button><button type="button" data-insert="heading">标题</button><button type="button" data-insert="link">链接</button></div><textarea id="post-content" class="form-textarea" name="content" maxlength="50000" placeholder="支持 Markdown…" required>` + esc(d.Content) + `</textarea></div></div><div class="editor-panel preview-panel" data-preview-panel><label class="form-label">预览</label><div class="preview-content prose preview-output" data-preview-output aria-live="polite"></div></div></div><div class="metadata-grid"><div class="form-group"><label for="post-community">关联社群</label>` + app.communitySelect("post-community", d.Community) + `</div><div class="form-group"><label for="post-license">内容许可</label>` + licenseSelect("post-license", d.License) + `<details class="field-help"><summary>许可说明</summary><p>保留全部权利仅授权站内展示。CC 授权允许按许可使用，已产生的合法复制权不会随删除撤销。</p></details></div></div><div class="editor-actions"><p class="draft-status" role="status" data-draft-status>`
+	body += `<div class="editor-modes" aria-label="编辑模式"><button class="mode-btn active" type="button" data-editor-mode="edit" aria-pressed="true">编辑</button><button class="mode-btn" type="button" data-editor-mode="preview" data-preview aria-pressed="false">预览</button></div><div class="editor-container side-by-side"><div class="editor-panel" data-edit-panel><div class="form-group"><label for="post-title" class="form-label">标题 <small class="muted">可选</small></label><input id="post-title" class="form-input" name="title" value="` + esc(d.Title) + `" maxlength="200" placeholder="可选：给你的内容起个标题"></div><div class="form-group"><label for="post-content" class="form-label">正文</label><div class="editor-tools"><button type="button" data-insert="bold" aria-label="插入粗体">粗体</button><button type="button" data-insert="heading">标题</button><button type="button" data-insert="link">链接</button></div><textarea id="post-content" class="form-textarea" name="content" maxlength="50000" placeholder="支持 Markdown…" required>` + esc(d.Content) + `</textarea></div></div><div class="editor-panel preview-panel" data-preview-panel><label class="form-label">预览</label><div class="preview-content prose preview-output" data-preview-output aria-live="polite"></div></div></div><div class="metadata-grid"><div class="form-group"><label for="post-community">关联社群</label>` + app.communitySelect("post-community", d.Community) + `</div><div class="form-group"><label for="post-license">内容许可</label>` + licenseSelect("post-license", d.License) + `<details class="field-help"><summary>许可说明</summary><p>保留全部权利仅授权站内展示。CC 授权允许按许可使用，已产生的合法复制权不会随删除撤销。</p></details></div></div><div class="editor-actions"><p class="draft-status" role="status" data-draft-status>`
 	if id != "" {
 		body += `自动保存`
 	} else {
@@ -360,7 +364,7 @@ func (app *App) publish(community, owner, title, content, license, key string) (
 	app.opsMu.Lock()
 	defer app.opsMu.Unlock()
 
-	if title == "" || content == "" || !checkText(title, 200) || !checkText(content, 50000) || !validLicense(license) || !uuidRequest(key) {
+	if content == "" || !checkText(title, 200) || !checkText(content, 50000) || !validLicense(license) || !uuidRequest(key) {
 		return nil, errInput
 	}
 	images, err := mediaIDs(content)
@@ -458,7 +462,7 @@ func (app *App) editPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	title, content, license := strings.TrimSpace(r.FormValue("title")), strings.TrimSpace(r.FormValue("content")), r.FormValue("license")
-	if title == "" || content == "" || !checkText(title, 200) || !checkText(content, 50000) || !validLicense(license) {
+	if content == "" || !checkText(title, 200) || !checkText(content, 50000) || !validLicense(license) {
 		fail(w, errInput)
 		return
 	}

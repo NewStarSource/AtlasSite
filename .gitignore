@@ -17,3 +17,9 @@ __pycache__/
 *.backup.key
 *.operations.jsonl*
 *.csrf.key
+
+# taste-skill working artifacts
+.taste-skill/
+shots/
+index-preview.html
+

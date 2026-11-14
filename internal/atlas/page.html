@@ -1,6 +1,6 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>{{.Title}} · AtlasSite</title><link rel="stylesheet" href="/assets/site.css"><script src="/assets/core.js" defer></script></head>
-<body><a class="skip-link" href="#main">跳到内容</a><div class="layout"><aside class="sidebar">
+<html lang="zh-CN" data-type="software" data-radius="soft" data-buttons="solid" data-motion><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="page-type" content="software"><meta name="site-kind" content="software"><meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#0c0c0d" media="(prefers-color-scheme: dark)"><title>{{.Title}} · AtlasSite</title><link rel="stylesheet" href="/assets/site.css"><script src="/assets/core.js" defer></script></head>
+<body><a class="skip-link" href="#main">跳到内容</a><div class="layout" data-enter><aside class="sidebar">
       <a href="/" class="logo" aria-label="AtlasSite 首页">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" aria-hidden="true">
           <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3">
@@ -35,7 +35,7 @@
           <span>设置</span>
         </a>
       <a href="/my" aria-label="我的" class="nav-item {{if or (eq .Page "my") (eq .Page "user") (eq .Page "bookmarks") (eq .Page "drafts") (eq .Page "subscriptions")}}active{{end}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg><span>我的</span></a></nav>
-    <div class="sidebar-footer">{{if .Identity}}<a href="/my">{{.Identity.Alias}}</a>{{else}}<a class="btn" href="/login">登录</a>{{end}}<a class="btn btn-secondary" href="/new">发布</a></div></aside>
+    <div class="sidebar-footer">{{if .Identity}}<a class="sidebar-user" href="/my">{{.Identity.Alias}}</a><a class="btn" href="/new">发布</a>{{else}}<a class="btn" href="/login">登录</a>{{end}}</div></aside>
 <div class="workspace"><header class="mobile-header"><a class="logo" href="/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" aria-hidden="true">
           <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3">
             <path d="M36 8 C35.5 13 36 18 35.5 22 C35 25 33.5 27 30.5 28.5 C25 31 18 33 11 35"/>
@@ -48,12 +48,11 @@
             <circle cx="34.5" cy="58" r="1.5" fill="currentColor" stroke="none"/>
           </g>
         </svg><span>AtlasSite</span></a><a href="/new">发布</a></header>
-<main class="main page-{{.Page}}" id="main">
-<nav class="page-tools" aria-label="页面工具">
+<main class="main page-{{.Page}}" id="main"><nav class="page-tools" aria-label="页面工具">
   <a class="tool-icon" href="/search" data-overlay-open="search-overlay" aria-label="搜索" title="搜索" aria-haspopup="dialog" aria-controls="search-overlay" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></a>
   <button class="tool-icon" type="button" data-overlay-open="more-overlay" aria-label="更多" title="更多" aria-haspopup="dialog" aria-controls="more-overlay" aria-expanded="false"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
 </nav>
-{{.Content}}</main></div></div>
+{{.Content}}</main><aside class="aside-panel" aria-label="边栏"></aside></div></div>
 <dialog class="page-overlay search-overlay" id="search-overlay" aria-labelledby="search-overlay-title">
   <header class="overlay-heading"><h2 id="search-overlay-title">搜索</h2><button class="tool-icon" type="button" data-overlay-close aria-label="关闭搜索" title="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button></header>
   <form action="/search" method="get" class="overlay-search-form">

@@ -19,7 +19,8 @@ func (app *App) userRoutes(router *chi.Mux) { app.registerUserRoutes(router) }
 
 type ReplyWithPost struct {
 	Reply
-	PostTitle string
+	PostTitle   string
+	PostContent string
 }
 
 func (app *App) getIdentity(id string) (*UserProfile, error) {
@@ -78,7 +79,7 @@ func (app *App) listRepliesByAuthor(authorID string, limit int, offset ...int) (
 	rows, err := app.db.Query(`
 		SELECT r.id, r.post_id, r.parent_id, r.author_id, COALESCE(i.alias, ''),
 		       r.content, r.level, r.status, r.created_at, r.updated_at,
-		       COALESCE(p.title, '')
+		       COALESCE(p.title, ''), COALESCE(p.content, '')
 		FROM replies r
 		LEFT JOIN users i ON r.author_id = i.id
 		LEFT JOIN posts p ON r.post_id = p.id
@@ -98,7 +99,7 @@ func (app *App) listRepliesByAuthor(authorID string, limit int, offset ...int) (
 		var parentID sql.NullString
 		var createdAt, updatedAt int64
 		if err := rows.Scan(&r.ID, &r.PostID, &parentID, &r.AuthorID, &r.AuthorName,
-			&r.Content, &r.Level, &r.Status, &createdAt, &updatedAt, &r.PostTitle); err != nil {
+			&r.Content, &r.Level, &r.Status, &createdAt, &updatedAt, &r.PostTitle, &r.PostContent); err != nil {
 			return nil, err
 		}
 		r.ParentID = parentID

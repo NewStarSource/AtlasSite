@@ -217,7 +217,7 @@ func (app *App) communityToolHistory(w http.ResponseWriter, r *http.Request) {
 				if err != nil || p.CommunityID != community || !app.postVisible(ref, i.ID) {
 					continue
 				}
-				body += `<li><a href="/p/` + pathID(ref) + `">` + esc(p.Title) + `</a></li>`
+				body += `<li><a href="/p/` + pathID(ref) + `">` + esc(p.DisplayTitle()) + `</a></li>`
 			}
 			body += `</ol><p class="muted">按该版本引用顺序显示，已撤回或隐藏的原帖不展示。</p>`
 		}

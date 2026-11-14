@@ -132,7 +132,7 @@ func (app *App) communityPage(w http.ResponseWriter, r *http.Request) {
 						if p.AuthorStatus != "active" {
 							author = "已注销"
 						}
-						body += `<p><a href="/p/` + pathID(id) + `">` + esc(p.Title) + ` →</a><small class="muted"> · ` + esc(author) + ` · ` + p.CreatedAt.Format("2006-01-02 15:04") + `</small></p>`
+						body += `<p><a href="/p/` + pathID(id) + `">` + esc(p.DisplayTitle()) + ` →</a><small class="muted"> · ` + esc(author) + ` · ` + p.CreatedAt.Format("2006-01-02 15:04") + `</small></p>`
 					}
 				}
 				if count == 0 {

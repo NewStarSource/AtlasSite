@@ -142,12 +142,12 @@ func (app *App) homePage(w http.ResponseWriter, r *http.Request) {
 	}
 	i, _, _ := app.currentIdentity(r)
 	viewer := ""
-	body := `<h1 class="sr-only">最新发布</h1>`
+	body := `<h1 class="feed-title">最新发布</h1>`
 	if i != nil {
 		viewer = i.ID
-		body += strings.Replace(formStart(r, "/new"), `<form `, `<form class="composer" `, 1) + `<label for="composer-input" class="sr-only">发布内容</label><textarea id="composer-input" class="composer-textarea" name="content" maxlength="50000" placeholder="分享你的想法、创作或观察…" aria-label="发布内容"></textarea><div class="composer-toolbar"><div class="composer-meta"><a class="meta-tag" href="/new#post-community">＋ 关联社群</a><a class="meta-tag" href="/new#post-image">＋ 上传图片</a><a class="meta-tag" href="/my/drafts">草稿</a></div><button class="btn" type="submit">继续编辑</button></div></form>`
+		body += strings.Replace(formStart(r, "/new"), `<form `, `<form class="composer" `, 1) + `<textarea id="composer-input" class="composer-textarea" name="content" maxlength="50000" placeholder="分享你的想法、创作或观察…" aria-label="发布内容"></textarea><div class="composer-toolbar"><button class="btn btn-primary" type="submit">继续编辑</button></div></form>`
 	} else {
-		body += `<div class="composer"><p>分享你的想法、创作或观察…</p><div class="composer-toolbar"><a class="btn" href="/login">登录后发布</a></div></div>`
+		body += `<div class="composer composer-guest"><p>分享你的想法、创作或观察…</p><a class="btn btn-primary" href="/login">登录后发布</a></div>`
 	}
 	body += `<div class="feed" role="feed">` + app.postCards(pageItems(posts), viewer, r) + `</div>` + pagination(r, len(posts) > pageSize)
 	app.renderPage(w, r, "最新发布", "home", body)
@@ -168,12 +168,14 @@ func (app *App) postCards(posts []Post, viewer string, r *http.Request) string {
 		rows.Close()
 	}
 	bookmarks := map[string]bool{}
+	likes := map[string]bool{}
 	if viewer != "" && len(posts) > 0 {
 		args := []any{viewer}
 		for _, p := range posts {
 			args = append(args, p.ID)
 		}
-		rows, err := app.db.Query("SELECT post_id FROM post_bookmarks WHERE identity_id=? AND post_id IN ("+strings.TrimSuffix(strings.Repeat("?,", len(posts)), ",")+")", args...)
+		ph := strings.TrimSuffix(strings.Repeat("?,", len(posts)), ",")
+		rows, err := app.db.Query("SELECT post_id FROM post_bookmarks WHERE identity_id=? AND post_id IN ("+ph+")", args...)
 		if err != nil {
 			return `<p>内容暂时不可用。</p>`
 		}
@@ -190,6 +192,15 @@ func (app *App) postCards(posts []Post, viewer string, r *http.Request) string {
 		if err != nil {
 			return `<p>内容暂时不可用。</p>`
 		}
+		likeRows, err := app.db.Query("SELECT post_id FROM post_likes WHERE user_id=? AND post_id IN ("+ph+")", args...)
+		if err == nil {
+			for likeRows.Next() {
+				var id string
+				likeRows.Scan(&id)
+				likes[id] = true
+			}
+			likeRows.Close()
+		}
 	}
 	var b strings.Builder
 	for _, p := range posts {
@@ -200,13 +211,20 @@ func (app *App) postCards(posts []Post, viewer string, r *http.Request) string {
 		if p.CommunityID != "" {
 			b.WriteString(`<span class="post-meta">发布于</span><a class="post-community" href="/c/` + pathID(p.CommunitySlug) + `">` + esc(p.CommunityName) + `</a>`)
 		}
-		b.WriteString(`<time class="post-meta post-time" datetime="` + p.CreatedAt.UTC().Format(time.RFC3339) + `" title="` + esc(p.CreatedAt.Format("2006-01-02 15:04:05 -07:00")) + `">` + formatTime(p.CreatedAt) + `</time></header><h2 class="post-title"><a href="/p/` + pathID(p.ID) + `">` + esc(p.Title) + `</a></h2><p class="post-content">` + esc(markdownExcerpt(p.Content, 180)) + `</p><div class="post-actions"><a class="action-btn" aria-label="查看回复" href="/p/` + pathID(p.ID) + `#reply-composer">` + uiIcon("reply") + `<span>` + strconv.Itoa(p.ReplyCount) + `</span></a>`)
+		b.WriteString(`<time class="post-meta post-time" datetime="` + p.CreatedAt.UTC().Format(time.RFC3339) + `" title="` + esc(p.CreatedAt.Format("2006-01-02 15:04:05 -07:00")) + `">` + formatTime(p.CreatedAt) + `</time></header><h2 class="post-title"><a href="/p/` + pathID(p.ID) + `">` + esc(p.DisplayTitle()) + `</a></h2>`)
+		if strings.TrimSpace(p.Title) != "" {
+			b.WriteString(`<p class="post-content">` + esc(markdownExcerpt(p.Content, 180)) + `</p>`)
+		}
+		b.WriteString(`<div class="post-actions">`)
+		b.WriteString(`<a class="action-btn" aria-label="查看回复" href="/p/` + pathID(p.ID) + `#reply-composer">` + uiIcon("reply") + `<span>` + strconv.Itoa(p.ReplyCount) + `</span></a>`)
 		if viewer != "" {
+			b.WriteString(stateForm(r, "/api/v1/p/"+pathID(p.ID)+"/like", "liked", likes[p.ID], "点赞", "取消点赞", uiIcon("like")+`<span data-action-count>`+strconv.Itoa(p.LikeCount)+`</span>`, "action-btn"))
 			b.WriteString(stateForm(r, "/api/v1/p/"+pathID(p.ID)+"/bookmark", "bookmarked", bookmarks[p.ID], "收藏", "取消收藏", uiIcon("bookmark")+`<span data-action-count>`+strconv.Itoa(p.BookmarkCount)+`</span>`, "action-btn"))
 		} else {
-			b.WriteString(`<a class="action-btn" aria-label="登录后收藏" title="登录后收藏" href="/login">` + uiIcon("bookmark") + `<span>` + strconv.Itoa(p.BookmarkCount) + `</span></a>`)
+			b.WriteString(`<a class="action-btn" aria-label="登录后点赞" href="/login">` + uiIcon("like") + `<span>` + strconv.Itoa(p.LikeCount) + `</span></a>`)
+			b.WriteString(`<a class="action-btn" aria-label="登录后收藏" href="/login">` + uiIcon("bookmark") + `<span>` + strconv.Itoa(p.BookmarkCount) + `</span></a>`)
 		}
-		b.WriteString(`<a class="action-btn" aria-label="打开内容" href="/p/` + pathID(p.ID) + `">` + uiIcon("more") + `</a></div></article>`)
+		b.WriteString(`</div></article>`)
 	}
 	if b.Len() == 0 {
 		return emptyState("这里还没有可显示的内容", "发布一条动态，或者先去发现感兴趣的社群。", "/discover", "发现社群")
