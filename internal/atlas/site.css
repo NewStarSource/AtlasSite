@@ -204,8 +204,15 @@ p { text-wrap: pretty; }
 }
 .nav-item:focus-visible { outline-offset: -2px; }
 
-.sidebar-footer { margin-top: auto; display: grid; gap: var(--s-2); font-size: var(--t-small); }
-.sidebar-footer .btn { justify-self: stretch; }
+/* sidebar footer: extend to sidebar edges, btn flush with right border */
+.sidebar-footer {
+  margin-top: auto;
+  margin-left: calc(-1 * var(--s-3)); margin-right: calc(-1 * var(--s-3));
+  padding: var(--s-3) var(--s-3) 0;
+  border-top: 1px solid var(--line);
+  display: grid; gap: var(--s-2); font-size: var(--t-small);
+}
+.sidebar-footer .btn { justify-self: stretch; height: 44px; font-size: 15px; font-weight: 600; border-radius: 0 0 0 0; }
 .sidebar-user { padding: 6px var(--s-2); font-size: var(--t-small); font-weight: 500; color: var(--ink); border-radius: var(--r-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: background-color var(--m-out) var(--ease); }
 .sidebar-user:hover { background: color-mix(in oklab, var(--ink) 5%, transparent); text-decoration: none; }
 
@@ -354,9 +361,8 @@ a.post:hover, a.link-card:hover {
 /* guest state */
 .composer-guest { display: flex; align-items: center; justify-content: space-between; gap: var(--s-4); padding: var(--s-4) var(--s-4); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg); margin-bottom: var(--s-5); }
 .composer-guest p { color: var(--muted); font-size: var(--t-small); }
-/* composer: no blue outline on focus — the border tint is enough */
-.composer-textarea:focus { outline: none; }
-.composer:focus-within { border-color: var(--line-strong); box-shadow: none; }
+/* composer: no focus ring — the textarea is borderless inside the card */
+.composer:focus-within { border-color: var(--line-strong); }
 /* textarea: minimal, no box */
 .composer-textarea {
   display: block; width: 100%; min-height: 60px; padding: var(--s-3) var(--s-4);
@@ -394,7 +400,10 @@ textarea, select {
   font: 400 var(--t-body)/1.5 var(--font-text); color: var(--ink);
   transition: border-color var(--m-out) var(--ease), box-shadow var(--m-out) var(--ease);
 }
-input:focus, textarea:focus, select:focus { outline: none; border-color: var(--action); box-shadow: var(--focus-ring); }
+input:focus, select:focus { outline: none; border-color: var(--action); box-shadow: var(--focus-ring); }
+textarea:focus { outline: none; border-color: var(--action); box-shadow: var(--focus-ring); }
+/* composer textarea overrides: no blue ring, no border highlight */
+.composer-textarea:focus { border-color: var(--line) !important; box-shadow: none !important; outline: none !important; }
 input:hover:not(:focus):not([type="checkbox"]):not([type="radio"]), textarea:hover:not(:focus), select:hover:not(:focus) { border-color: var(--line-strong); }
 input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; margin-right: var(--s-2); accent-color: var(--action); flex-shrink: 0; }
 textarea { resize: vertical; line-height: 1.6; min-height: 132px; }
