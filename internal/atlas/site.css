@@ -172,11 +172,13 @@ p { text-wrap: pretty; }
 /* ============================================================ sidebar */
 .sidebar {
   position: sticky; top: 0; height: 100vh;
-  padding: var(--s-5) var(--s-3);
+  padding: var(--s-5) var(--s-3) var(--s-4);
   border-right: 1px solid var(--line);
   background: var(--bg);
   display: flex; flex-direction: column; gap: var(--s-5);
 }
+/* publish button: flush-width, square bottom to meet the sidebar border */
+.sidebar-footer .btn { justify-self: stretch; border-radius: var(--r-sm); font-size: 15px; font-weight: 600; height: 44px; }
 
 .logo {
   display: inline-flex; align-items: center; gap: var(--s-2);
@@ -321,8 +323,8 @@ a.post:hover, a.link-card:hover {
 }
 .filter-btn.active, .sort-btn.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 
-/* action bar: larger icons, hover color feedback */
-.post-actions { display: flex; gap: var(--s-1); align-items: center; margin-top: var(--s-3); margin-left: -6px; }
+/* action bar left-aligned with title text (negative margin cancels btn padding) */
+.post-actions { display: flex; gap: var(--s-1); align-items: center; margin-top: var(--s-3); margin-left: -8px; }
 .action-btn {
   display: inline-flex; align-items: center; gap: 5px; padding: 6px 8px;
   background: none; border: 0; color: color-mix(in oklab, var(--ink) 35%, transparent); font-size: 13px;
@@ -348,12 +350,13 @@ a.post:hover, a.link-card:hover {
 .state-form .icon-btn[aria-pressed="true"] svg { fill: currentColor; }
 
 /* ============================================================ composer */
-.composer { margin-bottom: var(--s-5); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; transition: border-color var(--m-out) var(--ease), box-shadow var(--m-out) var(--ease); }
-.composer:hover { border-color: var(--line-strong); }
-.composer:focus-within { border-color: color-mix(in oklab, var(--action) 50%, var(--line)); box-shadow: 0 0 0 3px color-mix(in oklab, var(--action) 12%, transparent); }
+.composer { margin-bottom: var(--s-7); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; transition: border-color var(--m-out) var(--ease); }
 /* guest state */
 .composer-guest { display: flex; align-items: center; justify-content: space-between; gap: var(--s-4); padding: var(--s-4) var(--s-4); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg); margin-bottom: var(--s-5); }
 .composer-guest p { color: var(--muted); font-size: var(--t-small); }
+/* composer: no blue outline on focus — the border tint is enough */
+.composer-textarea:focus { outline: none; }
+.composer:focus-within { border-color: var(--line-strong); box-shadow: none; }
 /* textarea: minimal, no box */
 .composer-textarea {
   display: block; width: 100%; min-height: 60px; padding: var(--s-3) var(--s-4);
@@ -361,7 +364,6 @@ a.post:hover, a.link-card:hover {
   font: 400 var(--t-body)/1.6 var(--font-text); color: var(--ink); resize: none;
   transition: border-color var(--m-out) var(--ease);
 }
-.composer-textarea:focus { outline: none; }
 /* toolbar: publish btn prominent, attach links barely visible */
 .composer-toolbar { display: flex; align-items: center; justify-content: space-between; padding: var(--s-2) var(--s-3); gap: var(--s-3); background: color-mix(in oklab, var(--ink) 2%, transparent); }
 .composer-meta { display: flex; gap: var(--s-1); flex-wrap: wrap; }
