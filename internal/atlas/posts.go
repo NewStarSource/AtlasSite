@@ -24,6 +24,7 @@ type Post struct {
 	ViewCount     int
 	ReplyCount    int
 	BookmarkCount int
+	LikeCount     int
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
@@ -89,6 +90,7 @@ func (app *App) listPosts(communityID string, limit int, offset ...int) ([]Post,
 	query := `
 		SELECT p.id, COALESCE(p.community_id,''), COALESCE(c.name, ''), COALESCE(c.slug,''),p.author_id, COALESCE(i.alias, ''),COALESCE(i.status,'deleted'),
 		       p.title, p.content, p.status, p.view_count, p.reply_count, p.bookmark_count,
+		       (SELECT COUNT(*) FROM post_likes WHERE post_id=p.id) AS like_count,
 		       p.created_at, p.updated_at
 		FROM posts p
 		LEFT JOIN communities c ON p.community_id = c.id
@@ -109,7 +111,7 @@ func (app *App) listPosts(communityID string, limit int, offset ...int) ([]Post,
 		var p Post
 		var createdAt, updatedAt int64
 		if err := rows.Scan(&p.ID, &p.CommunityID, &p.CommunityName, &p.CommunitySlug, &p.AuthorID, &p.AuthorName, &p.AuthorStatus,
-			&p.Title, &p.Content, &p.Status, &p.ViewCount, &p.ReplyCount, &p.BookmarkCount,
+			&p.Title, &p.Content, &p.Status, &p.ViewCount, &p.ReplyCount, &p.BookmarkCount, &p.LikeCount,
 			&createdAt, &updatedAt); err != nil {
 			return nil, err
 		}
@@ -129,6 +131,7 @@ func (app *App) queryPostsPage(condition string, limit, offset int, args ...any)
 	query := `
 		SELECT p.id, COALESCE(p.community_id,''), COALESCE(c.name, ''), COALESCE(c.slug,''),p.author_id, COALESCE(i.alias, ''),COALESCE(i.status,'deleted'),
 		       p.title, p.content, p.status, p.view_count, p.reply_count, p.bookmark_count,
+		       (SELECT COUNT(*) FROM post_likes WHERE post_id=p.id) AS like_count,
 		       p.created_at, p.updated_at
 		FROM posts p
 		LEFT JOIN communities c ON p.community_id = c.id
@@ -150,7 +153,7 @@ func (app *App) queryPostsPage(condition string, limit, offset int, args ...any)
 		var p Post
 		var createdAt, updatedAt int64
 		if err := rows.Scan(&p.ID, &p.CommunityID, &p.CommunityName, &p.CommunitySlug, &p.AuthorID, &p.AuthorName, &p.AuthorStatus,
-			&p.Title, &p.Content, &p.Status, &p.ViewCount, &p.ReplyCount, &p.BookmarkCount,
+			&p.Title, &p.Content, &p.Status, &p.ViewCount, &p.ReplyCount, &p.BookmarkCount, &p.LikeCount,
 			&createdAt, &updatedAt); err != nil {
 			return nil, err
 		}

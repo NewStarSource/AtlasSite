@@ -163,8 +163,8 @@ p { text-wrap: pretty; }
 .main {
   width: 100%;
   max-width: var(--content-width);
-  margin: 0 auto;
-  padding: var(--s-6) var(--s-4);
+  margin: 0;
+  padding: var(--s-6) var(--s-7);
   padding-bottom: calc(var(--s-10) + 72px);
   overflow-wrap: anywhere;
 }
@@ -330,20 +330,20 @@ a.post:hover, a.link-card:hover {
 }
 .filter-btn.active, .sort-btn.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 
-/* action bar left-aligned with title text (negative margin cancels btn padding) */
-.post-actions { display: flex; gap: var(--s-1); align-items: center; margin-top: var(--s-3); margin-left: -8px; }
+/* action bar left-aligned with text — btn has 8px padding, offset it */
+.post-actions { display: flex; gap: 2px; align-items: center; margin-top: var(--s-3); margin-left: -8px; }
 .action-btn {
   display: inline-flex; align-items: center; gap: 5px; padding: 6px 8px;
-  background: none; border: 0; color: color-mix(in oklab, var(--ink) 35%, transparent); font-size: 13px;
-  border-radius: var(--r-sm); min-height: 36px; text-decoration: none;
+  background: none; border: 0; color: color-mix(in oklab, var(--ink) 38%, transparent); font-size: 13px;
+  border-radius: var(--r-sm); min-height: 32px; text-decoration: none; line-height: 1;
   transition: background-color var(--m-out) var(--ease), color var(--m-out) var(--ease);
 }
-.action-btn svg { width: 17px; height: 17px; flex-shrink: 0; }
-/* reply: hover → blue */
+.action-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+/* reply: hover → blue; like: hover → red; bookmark: hover → amber; default: ink */
 .action-btn[aria-label*="回复"]:hover, .action-btn[aria-label*="查看回复"]:hover { color: var(--action); background: color-mix(in oklab, var(--action) 8%, transparent); }
-/* bookmark: hover → amber */
+.action-btn[aria-label*="点赞"]:hover { color: #c0392b; background: color-mix(in oklab, #c0392b 8%, transparent); }
+.state-form .action-btn[aria-label*="取消点赞"], .state-form .action-btn[aria-pressed="true"][aria-label*="点赞"] { color: #c0392b; }
 .action-btn[aria-label*="收藏"]:hover { color: #b45309; background: color-mix(in oklab, #b45309 8%, transparent); }
-/* default hover */
 .action-btn:hover { color: var(--ink); background: color-mix(in oklab, var(--ink) 6%, transparent); }
 .state-form { position: relative; display: inline-flex; align-items: center; gap: var(--s-2); margin: 0; }
 .state-form button[aria-pressed="true"], .state-form .action-btn[aria-pressed="true"] { color: var(--ink); }

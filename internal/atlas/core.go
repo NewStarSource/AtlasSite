@@ -168,12 +168,14 @@ func (app *App) postCards(posts []Post, viewer string, r *http.Request) string {
 		rows.Close()
 	}
 	bookmarks := map[string]bool{}
+	likes := map[string]bool{}
 	if viewer != "" && len(posts) > 0 {
 		args := []any{viewer}
 		for _, p := range posts {
 			args = append(args, p.ID)
 		}
-		rows, err := app.db.Query("SELECT post_id FROM post_bookmarks WHERE identity_id=? AND post_id IN ("+strings.TrimSuffix(strings.Repeat("?,", len(posts)), ",")+")", args...)
+		ph := strings.TrimSuffix(strings.Repeat("?,", len(posts)), ",")
+		rows, err := app.db.Query("SELECT post_id FROM post_bookmarks WHERE identity_id=? AND post_id IN ("+ph+")", args...)
 		if err != nil {
 			return `<p>内容暂时不可用。</p>`
 		}
@@ -190,6 +192,15 @@ func (app *App) postCards(posts []Post, viewer string, r *http.Request) string {
 		if err != nil {
 			return `<p>内容暂时不可用。</p>`
 		}
+		likeRows, err := app.db.Query("SELECT post_id FROM post_likes WHERE user_id=? AND post_id IN ("+ph+")", args...)
+		if err == nil {
+			for likeRows.Next() {
+				var id string
+				likeRows.Scan(&id)
+				likes[id] = true
+			}
+			likeRows.Close()
+		}
 	}
 	var b strings.Builder
 	for _, p := range posts {
@@ -200,11 +211,14 @@ func (app *App) postCards(posts []Post, viewer string, r *http.Request) string {
 		if p.CommunityID != "" {
 			b.WriteString(`<span class="post-meta">发布于</span><a class="post-community" href="/c/` + pathID(p.CommunitySlug) + `">` + esc(p.CommunityName) + `</a>`)
 		}
-		b.WriteString(`<time class="post-meta post-time" datetime="` + p.CreatedAt.UTC().Format(time.RFC3339) + `" title="` + esc(p.CreatedAt.Format("2006-01-02 15:04:05 -07:00")) + `">` + formatTime(p.CreatedAt) + `</time></header><h2 class="post-title"><a href="/p/` + pathID(p.ID) + `">` + esc(p.Title) + `</a></h2><p class="post-content">` + esc(markdownExcerpt(p.Content, 180)) + `</p><div class="post-actions"><a class="action-btn" aria-label="查看回复" href="/p/` + pathID(p.ID) + `#reply-composer">` + uiIcon("reply") + `<span>` + strconv.Itoa(p.ReplyCount) + `</span></a>`)
+		b.WriteString(`<time class="post-meta post-time" datetime="` + p.CreatedAt.UTC().Format(time.RFC3339) + `" title="` + esc(p.CreatedAt.Format("2006-01-02 15:04:05 -07:00")) + `">` + formatTime(p.CreatedAt) + `</time></header><h2 class="post-title"><a href="/p/` + pathID(p.ID) + `">` + esc(p.Title) + `</a></h2><p class="post-content">` + esc(markdownExcerpt(p.Content, 180)) + `</p><div class="post-actions">`)
+		b.WriteString(`<a class="action-btn" aria-label="查看回复" href="/p/` + pathID(p.ID) + `#reply-composer">` + uiIcon("reply") + `<span>` + strconv.Itoa(p.ReplyCount) + `</span></a>`)
 		if viewer != "" {
+			b.WriteString(stateForm(r, "/api/v1/p/"+pathID(p.ID)+"/like", "liked", likes[p.ID], "点赞", "取消点赞", uiIcon("like")+`<span data-action-count>`+strconv.Itoa(p.LikeCount)+`</span>`, "action-btn"))
 			b.WriteString(stateForm(r, "/api/v1/p/"+pathID(p.ID)+"/bookmark", "bookmarked", bookmarks[p.ID], "收藏", "取消收藏", uiIcon("bookmark")+`<span data-action-count>`+strconv.Itoa(p.BookmarkCount)+`</span>`, "action-btn"))
 		} else {
-			b.WriteString(`<a class="action-btn" aria-label="登录后收藏" title="登录后收藏" href="/login">` + uiIcon("bookmark") + `<span>` + strconv.Itoa(p.BookmarkCount) + `</span></a>`)
+			b.WriteString(`<a class="action-btn" aria-label="登录后点赞" href="/login">` + uiIcon("like") + `<span>` + strconv.Itoa(p.LikeCount) + `</span></a>`)
+			b.WriteString(`<a class="action-btn" aria-label="登录后收藏" href="/login">` + uiIcon("bookmark") + `<span>` + strconv.Itoa(p.BookmarkCount) + `</span></a>`)
 		}
 		b.WriteString(`</div></article>`)
 	}
