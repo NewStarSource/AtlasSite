@@ -339,6 +339,9 @@ a.post:hover, a.link-card:hover {
 
 /* action bar left-aligned with text — btn has 8px padding, offset it */
 .post-actions { display: flex; gap: 2px; align-items: center; margin-top: var(--s-3); margin-left: -8px; }
+/* form wrapper inside post-actions must be inline-flex to match the link height */
+.post-actions > form, .post-actions .state-form { display: inline-flex; align-items: center; margin: 0; padding: 0; }
+.post-actions form { display: inline-flex; align-items: center; margin: 0; }
 .action-btn {
   display: inline-flex; align-items: center; gap: 5px; padding: 6px 8px;
   background: none; border: 0; color: color-mix(in oklab, var(--ink) 38%, transparent); font-size: 13px;
@@ -352,7 +355,7 @@ a.post:hover, a.link-card:hover {
 .state-form .action-btn[aria-label*="取消点赞"], .state-form .action-btn[aria-pressed="true"][aria-label*="点赞"] { color: #c0392b; }
 .action-btn[aria-label*="收藏"]:hover { color: #b45309; background: color-mix(in oklab, #b45309 8%, transparent); }
 .action-btn:hover { color: var(--ink); background: color-mix(in oklab, var(--ink) 6%, transparent); }
-.state-form { position: relative; display: inline-flex; align-items: center; gap: 0; margin: 0; }
+.state-form { position: relative; display: inline-flex; align-items: center; gap: 0; margin: 0; vertical-align: middle; }
 .state-form button[aria-pressed="true"], .state-form .action-btn[aria-pressed="true"] { color: var(--ink); }
 .state-form .action-btn[aria-pressed="true"] svg { fill: currentColor; opacity: 0.7; }
 .state-form button:disabled { opacity: .5; cursor: wait; }
@@ -414,7 +417,9 @@ textarea:focus { outline: none; border-color: var(--action); box-shadow: var(--f
 input:hover:not(:focus):not([type="checkbox"]):not([type="radio"]), textarea:hover:not(:focus), select:hover:not(:focus) { border-color: var(--line-strong); }
 input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; margin-right: var(--s-2); accent-color: var(--action); flex-shrink: 0; }
 textarea { resize: vertical; line-height: 1.6; min-height: 132px; }
-form > button { margin-top: var(--s-3); }
+/* only standalone forms get top margin; action forms (state-form, action-row) must not shift */
+form > button:not(.action-btn):not([class*="btn"]) { margin-top: var(--s-3); }
+.state-form > button, .post-actions form > button, .action-row form > button, .community-meta form > button { margin-top: 0; }
 .field-help, .draft-status, .form-help { font-size: var(--t-label); color: var(--muted); margin: var(--s-2) 0; }
 
 /* ============================================================ panels & prose */
