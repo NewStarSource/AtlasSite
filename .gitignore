@@ -18,9 +18,8 @@ __pycache__/
 *.operations.jsonl*
 *.csrf.key
 
-# taste-skill working artifacts (history/profile kept local; waivers tracked)
-.taste-skill/chrome-check/
-.taste-skill/history.json
+# taste-skill working artifacts
+.taste-skill/
 shots/
 index-preview.html
 
