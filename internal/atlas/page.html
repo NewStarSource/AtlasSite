@@ -48,12 +48,11 @@
             <circle cx="34.5" cy="58" r="1.5" fill="currentColor" stroke="none"/>
           </g>
         </svg><span>AtlasSite</span></a><a href="/new">发布</a></header>
-<main class="main page-{{.Page}}" id="main">
-<nav class="page-tools" aria-label="页面工具">
+<main class="main page-{{.Page}}" id="main"><nav class="page-tools" aria-label="页面工具">
   <a class="tool-icon" href="/search" data-overlay-open="search-overlay" aria-label="搜索" title="搜索" aria-haspopup="dialog" aria-controls="search-overlay" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></a>
   <button class="tool-icon" type="button" data-overlay-open="more-overlay" aria-label="更多" title="更多" aria-haspopup="dialog" aria-controls="more-overlay" aria-expanded="false"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
 </nav>
-{{.Content}}</main></div></div>
+{{.Content}}</main><aside class="aside-panel" aria-label="边栏"></aside></div></div>
 <dialog class="page-overlay search-overlay" id="search-overlay" aria-labelledby="search-overlay-title">
   <header class="overlay-heading"><h2 id="search-overlay-title">搜索</h2><button class="tool-icon" type="button" data-overlay-close aria-label="关闭搜索" title="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button></header>
   <form action="/search" method="get" class="overlay-search-form">

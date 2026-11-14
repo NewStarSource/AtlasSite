@@ -142,7 +142,7 @@ func (app *App) homePage(w http.ResponseWriter, r *http.Request) {
 	}
 	i, _, _ := app.currentIdentity(r)
 	viewer := ""
-	body := `<h1 class="sr-only">最新发布</h1>`
+	body := `<h1 class="feed-title">最新发布</h1>`
 	if i != nil {
 		viewer = i.ID
 		body += strings.Replace(formStart(r, "/new"), `<form `, `<form class="composer" `, 1) + `<textarea id="composer-input" class="composer-textarea" name="content" maxlength="50000" placeholder="分享你的想法、创作或观察…" aria-label="发布内容"></textarea><div class="composer-toolbar"><button class="btn btn-primary" type="submit">继续编辑</button></div></form>`

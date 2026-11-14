@@ -152,21 +152,31 @@ p { text-wrap: pretty; }
 :focus:not(:focus-visible) { outline: none; }
 ::selection { background: color-mix(in oklab, var(--accent) 26%, transparent); }
 
-/* ============================================================ layout shell */
+/* ============================================================ layout shell
+   三列居中：左侧导航 | 信息流 | 右侧边栏
+   sidebar 248px  |  feed 680px  |  aside 260px  = 1188px + gaps */
 .layout {
   display: grid;
-  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) 260px;
   min-height: 100vh;
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 0 auto;
   border-left: 1px solid var(--line);
   border-right: 1px solid var(--line);
 }
 .workspace, .sidebar, .nav { min-width: 0; }
 
+/* 右侧边栏 */
+.aside-panel {
+  border-left: 1px solid var(--line);
+  padding: var(--s-5) var(--s-5);
+  position: sticky; top: 0;
+  height: 100vh; overflow-y: auto;
+}
+
 .main {
   width: 100%;
-  max-width: var(--content-width);
+  max-width: 680px;
   margin: 0;
   padding: var(--s-5) var(--s-6);
   padding-bottom: calc(var(--s-10) + 72px);
@@ -208,20 +218,19 @@ p { text-wrap: pretty; }
 }
 .nav-item:focus-visible { outline-offset: -2px; }
 
-/* sidebar footer: extend to sidebar edges, btn flush with right border */
+/* sidebar footer: extend to sidebar edges */
 .sidebar-footer {
   margin-top: auto;
-  margin-left: calc(-1 * var(--s-3)); margin-right: calc(-1 * var(--s-3));
-  padding: var(--s-3) var(--s-3) 0;
+  padding: var(--s-4) var(--s-3);
   border-top: 1px solid var(--line);
-  display: grid; gap: var(--s-2); font-size: var(--t-small);
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-2);
 }
-.sidebar-footer .btn { justify-self: stretch; height: 44px; font-size: 15px; font-weight: 600; border-radius: 0 0 0 0; }
+.sidebar-footer .btn { height: 36px; padding: 0 var(--s-4); font-size: var(--t-small); font-weight: 600; border-radius: var(--r-md); }
 /* 发布按钮：黑色底、白字、圆角 */
 .sidebar-footer .btn.btn-primary, .sidebar-footer a.btn { background: #111; color: #fff; border-color: #111; border-radius: var(--r-md); }
 .sidebar-footer .btn.btn-primary:hover, .sidebar-footer a.btn:hover { background: #333; }
-.sidebar-user { padding: 6px var(--s-2); font-size: var(--t-small); font-weight: 500; color: var(--ink); border-radius: var(--r-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: background-color var(--m-out) var(--ease); }
-.sidebar-user:hover { background: color-mix(in oklab, var(--ink) 5%, transparent); text-decoration: none; }
+.sidebar-user { font-size: var(--t-small); font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.sidebar-user:hover { text-decoration: none; color: var(--action); }
 
 /* ============================================================ buttons (one pair) */
 .btn, .action-row > form > button, .panel button, .subscription-form button,
@@ -280,31 +289,39 @@ a.post:hover, a.link-card:hover {
 }
 @media (hover: none) { a:is(.post, .community-card, .link-card, .post-result, .user-result, .community-result, .community-item, .subcategory-item, .tool-card):hover { transform: none; } }
 
-/* ============================================================ feed & posts */
-.feed, .feed-list, .notification-list, .results-section, .content-list { display: flex; flex-direction: column; gap: 0; }
-.feed .post, .feed-list .post, .page-search .post {
-  border-radius: 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: var(--s-5) 0;
+/* ============================================================ feed & posts
+   方案B：workspace 浅灰底，每条帖子白卡 */
+.feed, .feed-list, .notification-list, .results-section, .content-list { display: flex; flex-direction: column; gap: var(--s-3); }
+.workspace { background: #f5f5f7; }
+.feed .post, .feed-list .post {
+  background: #fff; border: 1px solid color-mix(in oklab, var(--ink) 8%, transparent);
+  border-radius: var(--r-md); padding: var(--s-4) var(--s-5);
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  transition: box-shadow var(--m-out) var(--ease), border-color var(--m-out) var(--ease);
 }
-.feed .post:first-child, .feed-list .post:first-child { padding-top: var(--s-2); }
-.feed .post:hover, .feed-list .post:hover { transform: none; box-shadow: none; border-color: var(--line); }
+.feed .post:hover, .feed-list .post:hover { box-shadow: 0 2px 8px rgba(0,0,0,.07); border-color: color-mix(in oklab, var(--ink) 14%, transparent); transform: none; }
+@media (prefers-color-scheme: dark) {
+  .workspace { background: #101013; }
+  .feed .post, .feed-list .post { background: #17181b; border-color: color-mix(in oklab, var(--ink) 12%, transparent); }
+}
 
 /* post header: author, community, time — all muted and small */
 .post-header { display: flex; align-items: center; gap: var(--s-2); margin-bottom: var(--s-2); font-size: 12px; flex-wrap: wrap; }
 .post-header .avatar-small { width: 22px; height: 22px; font-size: 11px; margin-right: 2px; flex-shrink: 0; }
-.post-author { font-weight: 500; color: color-mix(in oklab, var(--ink) 50%, transparent); min-width: 0; overflow-wrap: anywhere; }
-.post-meta { color: color-mix(in oklab, var(--ink) 35%, transparent); }
-.post-time { margin-left: auto; white-space: nowrap; color: color-mix(in oklab, var(--ink) 35%, transparent); }
+.post-author { font-weight: 500; color: color-mix(in oklab, var(--ink) 55%, transparent); min-width: 0; overflow-wrap: anywhere; }
+.post-meta { color: color-mix(in oklab, var(--ink) 40%, transparent); }
+.post-time { margin-left: auto; white-space: nowrap; color: color-mix(in oklab, var(--ink) 48%, transparent); }
 .post-community { color: color-mix(in oklab, var(--ink) 50%, transparent); font-weight: 500; }
 .post-community:hover { color: var(--action); }
 
-/* post title: dominant, 20px bold */
-.post-title { margin-bottom: var(--s-2); font-size: 19px; font-weight: 700; line-height: 1.35; letter-spacing: -0.02em; overflow-wrap: anywhere; color: #1a1a1a; }
+/* post title: dominant */
+.post-title { margin-bottom: var(--s-1); font-size: 17px; font-weight: 700; line-height: 1.35; letter-spacing: -0.02em; overflow-wrap: anywhere; color: #1a1a1a; }
 @media (prefers-color-scheme: dark) { .post-title { color: #f0f0f0; } }
 .post-title a { color: inherit; background-image: linear-gradient(currentColor, currentColor); background-repeat: no-repeat; background-size: 0% 1px; background-position: 0 100%; transition: background-size var(--m-out) var(--ease); }
 .post-title a:hover { background-size: 100% 1px; transition-duration: var(--m-in); }
 
 /* post excerpt: 14px, mid-grey */
-.post-content { margin-bottom: var(--s-3); color: #4a4a4a; font-size: 14px; line-height: 1.7;
+.post-content { margin-bottom: var(--s-3); color: #555; font-size: 14px; line-height: 1.65;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 @media (prefers-color-scheme: dark) { .post-content { color: #9a9a9f; } }
 
@@ -367,23 +384,23 @@ a.post:hover, a.link-card:hover {
 .state-form .icon-btn[aria-pressed="true"] svg { fill: currentColor; }
 
 /* ============================================================ composer */
-.composer { margin-bottom: var(--s-7); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; transition: border-color var(--m-out) var(--ease); }
+.composer { margin-bottom: var(--s-4); background: #fff; border: 1px solid color-mix(in oklab, var(--ink) 8%, transparent); border-radius: var(--r-md); overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.04); transition: border-color var(--m-out) var(--ease); }
+.composer:hover { border-color: color-mix(in oklab, var(--ink) 16%, transparent); }
+.composer:focus-within { border-color: color-mix(in oklab, var(--ink) 20%, transparent); }
+@media (prefers-color-scheme: dark) { .composer { background: #17181b; } }
 /* guest state */
-.composer-guest { display: flex; align-items: center; justify-content: space-between; gap: var(--s-4); padding: var(--s-4) var(--s-4); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg); margin-bottom: var(--s-5); }
+.composer-guest { display: flex; align-items: center; justify-content: space-between; gap: var(--s-4); padding: var(--s-4); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-md); margin-bottom: var(--s-4); }
 .composer-guest p { color: var(--muted); font-size: var(--t-small); }
-/* composer: no focus ring — the textarea is borderless inside the card */
-.composer:focus-within { border-color: var(--line-strong); }
-/* textarea: minimal, no box */
+/* textarea: more inner padding, no border */
 .composer-textarea {
-  display: block; width: 100%; min-height: 60px; padding: var(--s-3) var(--s-4);
-  background: transparent; border: 0; border-bottom: 1px solid var(--line);
+  display: block; width: 100%; min-height: 72px; padding: var(--s-4) var(--s-5);
+  background: transparent; border: 0;
   font: 400 var(--t-body)/1.6 var(--font-text); color: var(--ink); resize: none;
-  transition: border-color var(--m-out) var(--ease);
 }
-/* toolbar: publish btn prominent, attach links barely visible */
-.composer-toolbar { display: flex; align-items: center; justify-content: space-between; padding: var(--s-2) var(--s-3); gap: var(--s-3); background: color-mix(in oklab, var(--ink) 2%, transparent); }
-.composer-meta { display: flex; gap: var(--s-1); flex-wrap: wrap; }
-/* meta-tags: ghost style, don't compete with publish */
+/* toolbar: publish btn on RIGHT, meta ghost links on left */
+.composer-toolbar { display: flex; align-items: center; justify-content: flex-end; padding: var(--s-2) var(--s-4) var(--s-3); gap: var(--s-3); background: color-mix(in oklab, var(--ink) 2%, transparent); }
+.composer-meta { display: flex; gap: var(--s-1); flex-wrap: wrap; margin-right: auto; }
+/* meta-tags: ghost */
 .meta-tag {
   display: inline-flex; align-items: center; padding: 4px var(--s-2);
   background: none; border: 0;
@@ -392,13 +409,13 @@ a.post:hover, a.link-card:hover {
   transition: color var(--m-out) var(--ease), background-color var(--m-out) var(--ease);
 }
 .meta-tag:hover { color: var(--ink); background: color-mix(in oklab, var(--ink) 6%, transparent); }
-/* publish button: solid, full contrast */
+/* publish button: solid black, right */
 .composer-toolbar > .btn {
   flex-shrink: 0; height: 34px; padding: 0 var(--s-4);
-  background: var(--ink); color: var(--bg); border-color: var(--ink);
+  background: #111; color: #fff; border-color: #111;
   font-size: var(--t-label); font-weight: 600; border-radius: var(--r-sm);
 }
-.composer-toolbar > .btn:hover { background: color-mix(in oklab, var(--ink) 86%, var(--bg)); }
+.composer-toolbar > .btn:hover { background: #333; }
 
 /* ============================================================ forms & inputs */
 label { display: block; font-size: var(--t-label); font-weight: 500; color: var(--ink); margin: var(--s-3) 0 var(--s-2); }
@@ -463,7 +480,12 @@ details.panel > summary:hover { color: var(--action); }
 .empty-state h2 { font-size: var(--t-card); font-weight: 500; margin-bottom: var(--s-3); }
 .load-more { display: flex; justify-content: center; margin-top: var(--s-6); }
 
-/* ============================================================ tabs */
+/* feed page title: small, grey, not dominant */
+.feed-title {
+  font-size: 20px; font-weight: 600; color: #333; letter-spacing: -0.01em;
+  margin-bottom: var(--s-4);
+}
+@media (prefers-color-scheme: dark) { .feed-title { color: #ccc; } }
 .feed-tabs, .settings-tabs, .tabs, .admin-tabs, .profile-tabs, .filter-tabs {
   display: flex; gap: var(--s-4); overflow-x: auto; border-bottom: 1px solid var(--line); margin-bottom: var(--s-5);
 }
@@ -888,7 +910,8 @@ details.panel > summary:hover { color: var(--action); }
 @media (max-width: 768px) {
   html { scroll-padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
   .main :is(input, textarea, select, button, summary, a) { scroll-margin-block: var(--s-6) calc(88px + env(safe-area-inset-bottom)); }
-  .layout { grid-template-columns: minmax(0, 1fr); }
+  .layout { grid-template-columns: minmax(0, 1fr); border: 0; }
+  .aside-panel { display: none; }
   .sidebar { position: fixed; bottom: 0; left: 0; right: 0; top: auto; height: auto; flex-direction: row; justify-content: space-around; padding: var(--s-2); padding-bottom: calc(var(--s-2) + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); border-right: 0; z-index: 100; gap: 0; }
   .sidebar > .logo, .sidebar-footer { display: none; }
   .nav { width: 100%; flex-direction: row; justify-content: space-around; gap: 0; }
@@ -926,6 +949,10 @@ details.panel > summary:hover { color: var(--action); }
   .wiki-diff { padding: var(--s-3); }
   .page-wiki .metadata-grid { grid-template-columns: 1fr; gap: 0; }
   .wiki-fields { padding: var(--s-4); gap: var(--s-2) var(--s-3); }
+}
+@media (max-width: 1024px) {
+  .layout { grid-template-columns: var(--sidebar-width) minmax(0, 1fr); }
+  .aside-panel { display: none; }
 }
 @media (max-width: 600px) {
   .action-row { flex-direction: column; align-items: stretch; }
