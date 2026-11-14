@@ -1,6 +1,6 @@
 "use strict";
-// lightweight toast for action errors (like/bookmark/follow failures)
-function showToast(msg) {
+// lightweight toast for action errors
+function showToast(msg, type) {
   let el = document.getElementById('a-toast');
   if (!el) {
     el = document.createElement('div');
@@ -10,9 +10,9 @@ function showToast(msg) {
     document.body.appendChild(el);
   }
   el.textContent = msg;
-  el.classList.add('a-toast--show');
+  el.className = 'a-toast--show' + (type === 'warn' ? ' a-toast--warn' : '');
   clearTimeout(el._t);
-  el._t = setTimeout(() => el.classList.remove('a-toast--show'), 4000);
+  el._t = setTimeout(() => el.className = '', 4500);
 }
 document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll("[data-overlay-open]").forEach(trigger => {
@@ -62,7 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const count = button.querySelector("[data-action-count]");
         if (count && Number.isInteger(result.count)) count.textContent = String(result.count);
         feedback.textContent = name === "bookmarked" || name === "liked" ? "" : active ? label : "已取消";
-      } catch (error) { const msg = error.name === "TypeError" ? "连接中断，请稍后重试。" : error.name === "SyntaxError" ? "状态未确认，请刷新后重试。" : error.message; feedback.textContent = msg; showToast(msg); }
+      } catch (error) { const msg = error.name === "TypeError" ? "连接中断，请稍后重试。" : error.name === "SyntaxError" ? "状态未确认，请刷新后重试。" : error.message; const isService = msg.includes("暂时不可用")||msg.includes("暂停"); showToast(msg, isService ? "warn" : ""); }
       finally { pending = false; button.disabled = false; form.removeAttribute("aria-busy"); }
     });
   });
@@ -153,7 +153,10 @@ document.addEventListener("DOMContentLoaded", () => {
     try {const response=await fetch(form.action,{method:"POST",body:new URLSearchParams(new FormData(form)),headers:{Accept:"application/json"}});
       if(!response.ok){const data=await response.json();throw new Error(message(data,response.status));}
       if(response.redirected){dirty=false;window.location.assign(response.url);}else{feedback.textContent="已保存。";}
-    }catch(error){feedback.textContent=error.message; if(error.message.includes("暂时不可用")||error.message.includes("暂停"))showToast(error.message);}finally{submitting=false;if(button)button.disabled=false;}
+    }catch(error){
+      const isService = error.message.includes("暂时不可用")||error.message.includes("暂停");
+      if(isService){ showToast(error.message, "warn"); } else { feedback.textContent=error.message; }
+    }finally{submitting=false;if(button)button.disabled=false;}
   }));
   if(reply){
     const target=reply.querySelector("[data-reply-target]");

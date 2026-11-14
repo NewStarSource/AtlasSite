@@ -68,8 +68,8 @@
   --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px;
   --s-6: 32px; --s-7: 48px; --s-8: 64px; --s-9: 96px; --s-10: 128px;
 
-  /* radius — soft */
-  --r-sm: 8px; --r-md: 12px; --r-lg: 20px; --r-btn: 8px;
+  /* radius — 连续曲率（iOS squircle 近似：比例更大、更柔） */
+  --r-sm: 10px; --r-md: 16px; --r-lg: 24px; --r-btn: 10px;
   --radius-sm: var(--r-sm); --radius-md: var(--r-md); --radius-lg: var(--r-lg); --radius-full: 999px;
 
   /* controls */
@@ -897,7 +897,8 @@ details.panel > summary:hover { color: var(--action); }
   opacity: 0; transition: opacity 200ms var(--ease), transform 200ms var(--ease);
 }
 #a-toast.a-toast--show { opacity: 1; transform: translateX(-50%) translateY(0); }
-@media (prefers-color-scheme: dark) { #a-toast { background: #f4f4f4; color: #111; } }
+#a-toast.a-toast--warn { background: #9a1b1b; color: #fff; }
+@media (prefers-color-scheme: dark) { #a-toast:not(.a-toast--warn) { background: #f4f4f4; color: #111; } }
 
 /* ============================================================ reduced motion */
 @media (prefers-reduced-motion: reduce) {
@@ -924,7 +925,7 @@ details.panel > summary:hover { color: var(--action); }
   .mobile-header .logo span { display: block; }
   .mobile-header .logo svg { width: 24px; height: 24px; }
   .mobile-header .logo { font-size: var(--t-body); }
-  .mobile-header .btn { height: var(--btn-h-sm); padding: 0 var(--s-3); }
+  .mobile-header .btn { display: none; }
   .main { padding: var(--s-5) var(--s-4) calc(var(--s-10) + 72px); max-width: none; }
   .page-heading { margin-bottom: var(--s-4); }
   .community-grid, .page-user .communities-grid { grid-template-columns: 1fr; }
