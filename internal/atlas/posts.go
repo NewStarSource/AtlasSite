@@ -43,6 +43,18 @@ type Reply struct {
 	Children   []*Reply
 }
 
+func displayTitle(title, content string) string {
+	if title = strings.TrimSpace(title); title != "" {
+		return title
+	}
+	if text := strings.TrimSpace(markdownExcerpt(content, 80)); text != "" {
+		return text
+	}
+	return "无标题"
+}
+
+func (p Post) DisplayTitle() string { return displayTitle(p.Title, p.Content) }
+
 func (app *App) postsRoutes(router *chi.Mux) { app.registerPostRoutes(router) }
 
 func (app *App) createPost(communityID, authorID, title, content string) (*Post, error) {

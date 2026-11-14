@@ -185,6 +185,38 @@ func TestCorePermissionsVersionsDraftsAndBlocks(t *testing.T) {
 	mustStatus(t, a.call("POST", "/api/v1/drafts/"+draft+"/delete", url.Values{}, true), 303)
 	mustStatus(t, a.call("GET", "/drafts/"+draft, nil, true), 404)
 }
+func TestCorePublishesWithoutTitle(t *testing.T) {
+	app := coreApp(t)
+	c := coreUser(t, app, "无题作者")
+	form := c.call("GET", "/new", nil, true)
+	mustStatus(t, form, 200)
+	if !strings.Contains(form.Body.String(), `name="title"`) || strings.Contains(form.Body.String(), `name="title" value="" maxlength="200" placeholder="可选：给你的内容起个标题" required`) {
+		t.Fatal("title field should be optional")
+	}
+	values := url.Values{"title": {""}, "content": {"没有标题也能发布。\n\n第二段保留。"}, "license": {"reserved"}, "request_id": {randomID()}}
+	w := c.call("POST", "/api/v1/posts", values, true)
+	mustStatus(t, w, 303)
+	id := strings.TrimPrefix(w.Header().Get("Location"), "/p/")
+	p, err := app.getPost(id)
+	if err != nil || p.Title != "" {
+		t.Fatal("untitled post not saved")
+	}
+	page := c.call("GET", "/p/"+id, nil, true)
+	mustStatus(t, page, 200)
+	if !strings.Contains(page.Body.String(), "没有标题也能发布。") || strings.Contains(page.Body.String(), `<h1 class="post-title"></h1>`) {
+		t.Fatal("untitled post did not render")
+	}
+	feed := c.call("GET", "/", nil, true)
+	mustStatus(t, feed, 200)
+	if !strings.Contains(feed.Body.String(), "没有标题也能发布。") {
+		t.Fatal("untitled post missing from feed")
+	}
+	edit := url.Values{"title": {""}, "content": {"改过的正文"}, "license": {"reserved"}, "version": {"1"}}
+	mustStatus(t, c.call("POST", "/api/v1/p/"+id+"/edit", edit, true), 303)
+	if p, err = app.getPost(id); err != nil || p.Title != "" || p.Content != "改过的正文" {
+		t.Fatal("untitled edit not saved")
+	}
+}
 func TestCoreReplyOwnershipAndHiddenAncestors(t *testing.T) {
 	app := coreApp(t)
 	a, b := coreUser(t, app, "A"), coreUser(t, app, "B")

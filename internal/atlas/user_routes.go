@@ -102,7 +102,7 @@ func (app *App) registerUserRoutes(router *chi.Mux) {
 			for _, reply := range pageItems(replies) {
 				if app.replyVisible(reply.ID, viewer) {
 					shown++
-					body += `<article class="post"><a class="post-community" href="/p/` + pathID(reply.PostID) + `#reply-` + pathID(reply.ID) + `">` + esc(reply.PostTitle) + `</a><div class="prose">` + renderMarkdown(reply.Content) + `</div></article>`
+					body += `<article class="post"><a class="post-community" href="/p/` + pathID(reply.PostID) + `#reply-` + pathID(reply.ID) + `">` + esc(displayTitle(reply.PostTitle, reply.PostContent)) + `</a><div class="prose">` + renderMarkdown(reply.Content) + `</div></article>`
 				}
 			}
 			if shown == 0 {

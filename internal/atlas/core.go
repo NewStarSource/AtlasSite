@@ -211,7 +211,11 @@ func (app *App) postCards(posts []Post, viewer string, r *http.Request) string {
 		if p.CommunityID != "" {
 			b.WriteString(`<span class="post-meta">发布于</span><a class="post-community" href="/c/` + pathID(p.CommunitySlug) + `">` + esc(p.CommunityName) + `</a>`)
 		}
-		b.WriteString(`<time class="post-meta post-time" datetime="` + p.CreatedAt.UTC().Format(time.RFC3339) + `" title="` + esc(p.CreatedAt.Format("2006-01-02 15:04:05 -07:00")) + `">` + formatTime(p.CreatedAt) + `</time></header><h2 class="post-title"><a href="/p/` + pathID(p.ID) + `">` + esc(p.Title) + `</a></h2><p class="post-content">` + esc(markdownExcerpt(p.Content, 180)) + `</p><div class="post-actions">`)
+		b.WriteString(`<time class="post-meta post-time" datetime="` + p.CreatedAt.UTC().Format(time.RFC3339) + `" title="` + esc(p.CreatedAt.Format("2006-01-02 15:04:05 -07:00")) + `">` + formatTime(p.CreatedAt) + `</time></header><h2 class="post-title"><a href="/p/` + pathID(p.ID) + `">` + esc(p.DisplayTitle()) + `</a></h2>`)
+		if strings.TrimSpace(p.Title) != "" {
+			b.WriteString(`<p class="post-content">` + esc(markdownExcerpt(p.Content, 180)) + `</p>`)
+		}
+		b.WriteString(`<div class="post-actions">`)
 		b.WriteString(`<a class="action-btn" aria-label="查看回复" href="/p/` + pathID(p.ID) + `#reply-composer">` + uiIcon("reply") + `<span>` + strconv.Itoa(p.ReplyCount) + `</span></a>`)
 		if viewer != "" {
 			b.WriteString(stateForm(r, "/api/v1/p/"+pathID(p.ID)+"/like", "liked", likes[p.ID], "点赞", "取消点赞", uiIcon("like")+`<span data-action-count>`+strconv.Itoa(p.LikeCount)+`</span>`, "action-btn"))
